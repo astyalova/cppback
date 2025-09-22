@@ -65,7 +65,7 @@ void HandleConnection(tcp::socket socket) {
             }
 
         } else {
-            std::string body = "Invalid method.";
+            std::string body = "Invalid method";
 
             response = StringResponse(http::status::method_not_allowed, request->version());
             response.set(http::field::content_type, "text/html"sv);
