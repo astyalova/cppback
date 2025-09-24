@@ -38,19 +38,18 @@ StringResponse MakeStringResponse(http::status status, std::string_view body, un
 }
 
 StringResponse HandleRequest(StringRequest&& req) {
-        auto make = [&](http::status st, std::string_view body) {
+    auto make = [&](http::status st, std::string_view body) {
         return MakeStringResponse(st, body, req.version(), req.keep_alive());
     };
 
     std::string target = std::string(req.target());
-    if (!target.empty() && target.front() == '/')
+    if (!target.empty() && target.front() == '/') {
         target.erase(0, 1);
     }
 
     if(req.method() == http::verb::get) {
         std::string body = "Hello, " + target;
         return make(http::status::ok, body);
-
     } else if (req.method() == http::verb::head) {
         std::string body = "Hello, " + target;
         auto resp = make(http::status::ok, ""sv);      // пустое тело
