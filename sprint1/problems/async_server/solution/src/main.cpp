@@ -38,30 +38,44 @@ StringResponse MakeStringResponse(http::status status, std::string_view body, un
 }
 
 StringResponse HandleRequest(StringRequest&& req) {
-    auto make = [&](http::status st, std::string_view body) {
-        return MakeStringResponse(st, body, req.version(), req.keep_alive());
+    static const auto make_request_body = [&req]() {
+        std::string request_body;
+        switch (req.method())
+        {
+        case http::verb::get:
+        case http::verb::head: {
+            std::string target_name;
+            if (!req.target().empty()) {
+                target_name = std::string(req.target().begin() + 1, req.target().end());
+            }
+            request_body = "Hello, "s + target_name;
+            break;
+        }
+        default: request_body = "Invalid method"sv;
+        }
+
+        return request_body;
     };
 
-    std::string target = std::string(req.target());
-    if (!target.empty() && target.front() == '/') {
-        target.erase(0, 1);
+    auto response = MakeStringResponse(http::status::ok,
+                                       make_request_body(),
+                                       req.version(),
+                                       req.keep_alive());
+    switch (req.method())
+    {
+    case http::verb::get: break;
+    case http::verb::head: {
+        response.body() = ""sv;
+        break;
+    }
+    default: {
+        response.result(http::status::method_not_allowed);
+        response.set("Allow"sv, "GET, HEAD"sv);
+        break;
+    }
     }
 
-    if(req.method() == http::verb::get) {
-        std::string body = "Hello, " + target;
-        return make(http::status::ok, body);
-    } else if (req.method() == http::verb::head) {
-        std::string body = "Hello, " + target;
-        auto resp = make(http::status::ok, ""sv);      // пустое тело
-        resp.content_length(body.size());            
-        return resp;
-
-    } else {
-        auto resp = make(http::status::method_not_allowed, "Invalid method."sv);
-        resp.set(http::field::allow, "GET, HEAD");
-        return resp;
-    }
-    return MakeStringResponse(http::status::ok, "OK"sv, req.version(), req.keep_alive());
+    return response;
 }
 
 // Запускает функцию fn на n потоках, включая текущий
