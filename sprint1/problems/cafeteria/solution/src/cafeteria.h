@@ -15,8 +15,6 @@
 
 #include "hotdog.h"
 #include "result.h"
-#include "ingredients.h"
-#include "gascooker.h"
 
 namespace net = boost::asio;
 
