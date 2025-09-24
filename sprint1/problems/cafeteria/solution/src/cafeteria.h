@@ -8,9 +8,10 @@
 #include <boost/asio/steady_timer.hpp>
 #include <memory>
 
+
 #include "hotdog.h"
 #include "result.h"
-#include "store.h"      
+#include "ingredients.h"     
 #include "gascooker.h"  
 
 namespace net = boost::asio;
