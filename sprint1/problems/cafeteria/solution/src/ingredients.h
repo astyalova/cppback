@@ -1,158 +1,140 @@
 #pragma once
-#include <functional>
-#include <optional>
+#ifdef _WIN32
+#include <sdkddkver.h>
+#endif
 
-#include "clock.h"
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/asio/steady_timer.hpp>
+#include <boost/asio/bind_executor.hpp>
+
+#include <memory>
+#include <chrono>
+#include <utility>
+
+#include "hotdog.h"
+#include "result.h"
+#include "ingredients.h"
 #include "gascooker.h"
 
-/*
-Класс "Сосиска".
-Позволяет себя обжаривать на газовой плите
-*/
-class Sausage : public std::enable_shared_from_this<Sausage> {
+namespace net = boost::asio;
+
+// Колбэк, который вызывается когда хот-дог готов или произошла ошибка
+using HotDogHandler = std::function<void(Result<HotDog>)>;
+
+class Cafeteria : public std::enable_shared_from_this<Cafeteria> {
 public:
-    using Handler = std::function<void()>;
+    explicit Cafeteria(net::io_context& io)
+        : io_(io)
+        , strand_(net::make_strand(io_))
+        , gas_cooker_(std::make_shared<GasCooker>(io_))
+    {}
 
-    explicit Sausage(int id)
-        : id_{id} {
-    }
-
-    int GetId() const {
-        return id_;
-    }
-
-    // Асинхронно начинает приготовление. Вызывает handler, как только началось приготовление
-    void StartFry(GasCooker& cooker, Handler handler) {
-        // Метод StartFry можно вызвать только один раз
-        if (frying_start_time_) {
-            throw std::logic_error("Frying already started");
-        }
-
-        // Запрещаем повторный вызов StartFry
-        frying_start_time_ = Clock::now();
-
-        // Готовимся занять газовую плиту
-        gas_cooker_lock_ = GasCookerLock{cooker.shared_from_this()};
-
-        // Занимаем горелку для начала обжаривания.
-        // Чтобы продлить жизнь текущего объекта, захватываем shared_ptr в лямбде
-        cooker.UseBurner([self = shared_from_this(), handler = std::move(handler)] {
-            // Запоминаем время фактического начала обжаривания
-            self->frying_start_time_ = Clock::now();
-            handler();
+    // Асинхронно готовит хот-дог
+    void OrderHotDog(HotDogHandler handler) {
+        // Запускаем работу через strand, чтобы все операции шли последовательно для данного объекта
+        net::dispatch(strand_, [self = shared_from_this(), handler = std::move(handler)]() mutable {
+            self->StartCooking(std::move(handler));
         });
     }
 
-    // Завершает приготовление и освобождает горелку
-    void StopFry() {
-        if (!frying_start_time_) {
-            throw std::logic_error("Frying has not started");
-        }
-        if (frying_end_time_) {
-            throw std::logic_error("Frying has already stopped");
-        }
-        frying_end_time_ = Clock::now();
-        // Освобождаем горелку
-        gas_cooker_lock_.Unlock();
-    }
-
-    bool IsCooked() const noexcept {
-        return frying_start_time_.has_value() && frying_end_time_.has_value();
-    }
-
-    Clock::duration GetCookDuration() const {
-        if (!frying_start_time_ || !frying_end_time_) {
-            throw std::logic_error("Sausage has not been cooked");
-        }
-        return *frying_end_time_ - *frying_start_time_;
-    }
-
 private:
-    int id_;
-    GasCookerLock gas_cooker_lock_;
-    std::optional<Clock::time_point> frying_start_time_;
-    std::optional<Clock::time_point> frying_end_time_;
-};
+    net::io_context& io_;
+    net::strand<net::io_context::executor_type> strand_;
+    std::shared_ptr<GasCooker> gas_cooker_;
+    Store store_;
 
-// Класс "Хлеб". Ведёт себя аналогично классу "Сосиска"
-class Bread : public std::enable_shared_from_this<Bread> {
-public:
-    using Handler = std::function<void()>;
-
-    explicit Bread(int id)
-        : id_{id} {
+    // Выбираем безопасную длительность готовки: среднее между MIN и MAX,
+    // чтобы гарантированно попасть в допустимый интервал
+    static Clock::duration SausageTargetDuration() {
+        using D = Clock::duration;
+        return (HotDog::MIN_SAUSAGE_COOK_DURATION + HotDog::MAX_SAUSAGE_COOK_DURATION) / 2;
+    }
+    static Clock::duration BreadTargetDuration() {
+        using D = Clock::duration;
+        return (HotDog::MIN_BREAD_COOK_DURATION + HotDog::MAX_BREAD_COOK_DURATION) / 2;
     }
 
-    int GetId() const {
-        return id_;
+    void StartCooking(HotDogHandler handler) {
+        auto sausage = store_.GetSausage();
+        auto bread   = store_.GetBread();
+        const int id = store_.NextOrderId();
+
+        // Sausage::StartFry вызывает handler, когда горелка занята и обжаривание начинается.
+        // В этом handler мы ставим таймер на целевую длительность и по его истечении завершаем жарку.
+        sausage->StartFry(*gas_cooker_, 
+            [self = shared_from_this(),
+             sausage,
+             bread,
+             id,
+             handler]() mutable {
+                // когда обжаривание реально началось — ставим таймер на нужную длительность
+                auto timer = std::make_shared<net::steady_timer>(
+                    self->io_, SausageTargetDuration());
+
+                timer->async_wait(
+                    boost::asio::bind_executor(
+                        self->strand_,
+                        [self, sausage, bread, id, handler, timer](const boost::system::error_code& ec) mutable {
+                            if (ec) {
+                                // Ошибка ожидания таймера
+                                handler(Result<HotDog>::Error(ec.message()));
+                                return;
+                            }
+
+                            // Завершаем обжаривание сосиски
+                            try {
+                                sausage->StopFry();
+                            } catch (const std::exception& e) {
+                                handler(Result<HotDog>::Error(e.what()));
+                                return;
+                            }
+
+                            // После успешной готовки сосиски — начинаем выпечку хлеба
+                            self->StartBreadBake(std::move(sausage), std::move(bread), id, std::move(handler));
+                        }
+                    )
+                );
+            }
+        );
     }
 
-    // Начинает приготовление хлеба на газовой плите. Как только горелка будет занята, вызовет
-    // handler
-    void StartBake(GasCooker& cooker, Handler handler) {
-        if (frying_start_time_) {
-            throw std::logic_error("Frying already started");
-        }
+    void StartBreadBake(std::shared_ptr<Sausage> sausage,
+                        std::shared_ptr<Bread> bread,
+                        int id,
+                        HotDogHandler handler) {
+        bread->StartBake(*gas_cooker_,
+            [self = shared_from_this(), sausage, bread, id, handler]() mutable {
+                auto timer = std::make_shared<net::steady_timer>(
+                    self->io_, BreadTargetDuration());
 
-        // Запрещаем повторный вызов StartFry
-        frying_start_time_ = Clock::now();
+                timer->async_wait(
+                    boost::asio::bind_executor(
+                        self->strand_,
+                        [self, sausage, bread, id, handler, timer](const boost::system::error_code& ec) mutable {
+                            if (ec) {
+                                handler(Result<HotDog>::Error(ec.message()));
+                                return;
+                            }
 
-        // Готовимся занять газовую плиту
-        gas_cooker_lock_ = GasCookerLock{cooker.shared_from_this()};
+                            try {
+                                bread->StopBaking();
+                            } catch (const std::exception& e) {
+                                handler(Result<HotDog>::Error(e.what()));
+                                return;
+                            }
 
-        // Занимаем горелку для начала обжаривания.
-        // Чтобы продлить жизнь текущего объекта, захватываем shared_ptr в лямбде
-        cooker.UseBurner([self = shared_from_this(), handler = std::move(handler)] {
-            // Запоминаем время фактического начала обжаривания
-            self->frying_start_time_ = Clock::now();
-            handler();
-        });
+                            // Собираем хот-дог и возвращаем результат
+                            try {
+                                HotDog hotdog(id, sausage, bread);
+                                handler(Result<HotDog>::Success(std::move(hotdog)));
+                            } catch (const std::exception& e) {
+                                handler(Result<HotDog>::Error(e.what()));
+                            }
+                        }
+                    )
+                );
+            }
+        );
     }
-
-    // Останавливает приготовление хлеба и освобождает горелку.
-    void StopBaking() {
-        if (!frying_start_time_) {
-            throw std::logic_error("Frying has not started");
-        }
-        if (frying_end_time_) {
-            throw std::logic_error("Frying has already stopped");
-        }
-        frying_end_time_ = Clock::now();
-        // Освобождаем горелку
-        gas_cooker_lock_.Unlock();
-    }
-
-    // Информирует, испечён ли хлеб
-    bool IsCooked() const noexcept {
-        return frying_start_time_.has_value() && frying_end_time_.has_value();
-    }
-
-    // Возвращает продолжительность выпекания хлеба. Бросает исключение, если хлеб не был испечён
-    Clock::duration GetBakingDuration() const {
-        if (!frying_start_time_ || !frying_end_time_) {
-            throw std::logic_error("Sausage has not been cooked");
-        }
-        return *frying_end_time_ - *frying_start_time_;
-    }
-
-private:
-    int id_;
-    GasCookerLock gas_cooker_lock_;
-    std::optional<Clock::time_point> frying_start_time_;
-    std::optional<Clock::time_point> frying_end_time_;
-};
-
-// Склад ингредиентов (возвращает ингредиенты с уникальным id)
-class Store {
-public:
-    std::shared_ptr<Bread> GetBread() {
-        return std::make_shared<Bread>(++next_id_);
-    }
-
-    std::shared_ptr<Sausage> GetSausage() {
-        return std::make_shared<Sausage>(++next_id_);
-    }
-
-private:
-    int next_id_ = 0;
 };
