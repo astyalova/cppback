@@ -59,9 +59,9 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
                 });
             }
 
-            //officies
+            //offices
 
-            for(const auto& office : obj.at("officies").as_array()) {
+            for(const auto& office : obj.at("offices").as_array()) {
                 auto office_data = office.as_object();
 
                 mp.AddOffice(model::Office {
@@ -75,9 +75,8 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
             game.AddMap(std::move(mp));
         }
 
-    } catch(const boost::system::system_error& e) {
-        std::cerr << "Ошибка парсинга: " << e.what() << "\n";
-        return game;
+    } catch(...) {
+        throw;
     }
 
     return game;
