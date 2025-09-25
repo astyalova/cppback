@@ -3,9 +3,13 @@
 #include "model.h"
 #include "json_serializer.h"
 
+#include <boost/json.hpp>
+#include <string>
+
 namespace http_handler {
 namespace beast = boost::beast;
 namespace http = beast::http;
+namespace json = boost::json;
 
 class RequestHandler {
 public:
@@ -18,57 +22,74 @@ public:
 
     template <typename Body, typename Allocator, typename Send>
     void operator()(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send) {
-        namespace http = boost::beast::http;
+        const std::string target = std::string(req.target());
+
         http::response<http::string_body> res{http::status::ok, req.version()};
         res.set(http::field::server, "MyGameServer");
         res.set(http::field::content_type, "application/json");
         res.keep_alive(req.keep_alive());
 
-        const std::string target = std::string(req.target());
-
         try {
-            if (!target.starts_with("/api/v1/")) {
-                boost::json::object body;
+            const std::string api_prefix   = "/api/v1/";
+            const std::string maps_path    = "/api/v1/maps";
+            const std::string maps_prefix  = "/api/v1/maps/";
+
+            // uncorrect API version
+            if (target.rfind(api_prefix, 0) != 0) {
+                json::object body;
                 body["code"] = "badRequest";
                 body["message"] = "Invalid API version";
                 res.result(http::status::bad_request);
-                res.body() = boost::json::serialize(body);
+                res.body() = json::serialize(body);
+                res.prepare_payload();
+                return send(std::move(res));
             }
-            else if (target == "/api/v1/maps") {
+
+            if (target == maps_path) {
                 res.body() = json_serializer::SerializeMaps(game_.GetMaps());
+                
             }
-            else if (target.starts_with("/api/v1/maps/")) {
-                std::string map_id = target.substr(std::strlen("/api/v1/maps/"));
-                if (const auto* map = game_.FindMap(model::Map::Id(map_id))) {
-                    res.body() = json_serializer::SerializeMap(*map);
+            // correct map
+            else if (target.rfind(maps_prefix, 0) == 0) {
+                const std::string map_id = target.substr(maps_prefix.size());
+                if (map_id.empty()) {
+                    json::object body;
+                    body["code"] = "badRequest";
+                    body["message"] = "Map id is empty";
+                    res.result(http::status::bad_request);
+                    res.body() = json::serialize(body);
                 } else {
-                    boost::json::object body;
-                    body["code"] = "mapNotFound";
-                    body["message"] = "Map not found";
-                    res.result(http::status::not_found);
-                    res.body() = boost::json::serialize(body);
+                    const auto* map = game_.FindMap(model::Map::Id(map_id));
+                    if (map) {
+                        res.body() = json_serializer::SerializeMap(*map);
+                    } else {
+                        json::object body;
+                        body["code"] = "mapNotFound";
+                        body["message"] = "Map not found";
+                        res.result(http::status::not_found);
+                        res.body() = json::serialize(body);
+                    }
                 }
             }
+            // correct prefix but inknown resource -> 404
             else {
-                boost::json::object body;
-                body["code"] = "badRequest";
+                json::object body;
+                body["code"] = "notFound";
                 body["message"] = "Unknown endpoint";
-                res.result(http::status::bad_request);
-                res.body() = boost::json::serialize(body);
+                res.result(http::status::not_found);
+                res.body() = json::serialize(body);
             }
-        }
-        catch (const std::exception& e) {
+        } catch (const std::exception& e) {
             res.result(http::status::internal_server_error);
-            boost::json::object body;
+            json::object body;
             body["code"] = "internalError";
             body["message"] = e.what();
-            res.body() = boost::json::serialize(body);
+            res.body() = json::serialize(body);
         }
 
         res.prepare_payload();
         send(std::move(res));
     }
-
 
 private:
     model::Game& game_;
