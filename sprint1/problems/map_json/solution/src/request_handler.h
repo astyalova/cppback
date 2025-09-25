@@ -18,38 +18,57 @@ public:
 
     template <typename Body, typename Allocator, typename Send>
     void operator()(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send) {
-        const auto& target = req.target();
-        
+        namespace http = boost::beast::http;
         http::response<http::string_body> res{http::status::ok, req.version()};
         res.set(http::field::server, "MyGameServer");
         res.set(http::field::content_type, "application/json");
         res.keep_alive(req.keep_alive());
 
-        try {
-            if (target == "/maps") {
+        const std::string target = std::string(req.target());
 
+        try {
+            if (!target.starts_with("/api/v1/")) {
+                boost::json::object body;
+                body["code"] = "badRequest";
+                body["message"] = "Invalid API version";
+                res.result(http::status::bad_request);
+                res.body() = boost::json::serialize(body);
+            }
+            else if (target == "/api/v1/maps") {
                 res.body() = json_serializer::SerializeMaps(game_.GetMaps());
-            } else if (target.starts_with("/map/")) {
-                std::string map_id = std::string(target.substr(5)); 
-                const auto* map = game_.FindMap(model::Map::Id(map_id));
-                if (map) {
+            }
+            else if (target.starts_with("/api/v1/maps/")) {
+                std::string map_id = target.substr(std::strlen("/api/v1/maps/"));
+                if (const auto* map = game_.FindMap(model::Map::Id(map_id))) {
                     res.body() = json_serializer::SerializeMap(*map);
                 } else {
+                    boost::json::object body;
+                    body["code"] = "mapNotFound";
+                    body["message"] = "Map not found";
                     res.result(http::status::not_found);
-                    res.body() = R"({"error":"Map not found"})";
+                    res.body() = boost::json::serialize(body);
                 }
-            } else {
-                res.result(http::status::not_found);
-                res.body() = R"({"error":"Unknown endpoint"})";
             }
-        } catch (const std::exception& e) {
+            else {
+                boost::json::object body;
+                body["code"] = "badRequest";
+                body["message"] = "Unknown endpoint";
+                res.result(http::status::bad_request);
+                res.body() = boost::json::serialize(body);
+            }
+        }
+        catch (const std::exception& e) {
             res.result(http::status::internal_server_error);
-            res.body() = std::string(R"({"error":")") + e.what() + "\"}";
+            boost::json::object body;
+            body["code"] = "internalError";
+            body["message"] = e.what();
+            res.body() = boost::json::serialize(body);
         }
 
         res.prepare_payload();
         send(std::move(res));
     }
+
 
 private:
     model::Game& game_;
