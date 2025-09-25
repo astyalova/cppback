@@ -28,12 +28,12 @@ public:
         try {
             if (target == "/maps") {
 
-                res.body() = SerializeMaps(game_.GetMaps());
+                res.body() = json_serializer::SerializeMaps(game_.GetMaps());
             } else if (target.starts_with("/map/")) {
                 std::string map_id = std::string(target.substr(5)); 
                 const auto* map = game_.FindMap(model::Map::Id(map_id));
                 if (map) {
-                    res.body() = SerializeMap(*map);
+                    res.body() = json_serializer::SerializeMap(*map);
                 } else {
                     res.result(http::status::not_found);
                     res.body() = R"({"error":"Map not found"})";
