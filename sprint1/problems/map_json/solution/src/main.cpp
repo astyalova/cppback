@@ -7,6 +7,7 @@
 #include "json_loader.h"
 #include "request_handler.h"
 
+
 using namespace std::literals;
 namespace net = boost::asio;
 
@@ -47,7 +48,7 @@ int main(int argc, const char* argv[]) {
 
         // 5. Запустить обработчик HTTP-запросов, делегируя их обработчику запросов
         
-        http_server::ServeHttp(ioc, {address, port}, [&handler](auto&& req, auto&& send) {
+        http_server::ServeHttp(ioc, net::ip::tcp::endpoint{net::ip::tcp::v4(), 8080}, [&handler](auto&& req, auto&& send) {
             handler(std::forward<decltype(req)>(req), std::forward<decltype(send)>(send));
         });
         

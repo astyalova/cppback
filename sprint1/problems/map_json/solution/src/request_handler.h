@@ -1,6 +1,7 @@
 #pragma once
 #include "http_server.h"
 #include "model.h"
+#include "json_serializer.h"
 
 namespace http_handler {
 namespace beast = boost::beast;
