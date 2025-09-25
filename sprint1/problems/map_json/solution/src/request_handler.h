@@ -52,13 +52,6 @@ public:
             // correct map
             else if (target.rfind(maps_prefix, 0) == 0) {
                 const std::string map_id = target.substr(maps_prefix.size());
-                if (map_id.empty()) {
-                    json::object body;
-                    body["code"] = "badRequest";
-                    body["message"] = "Map id is empty";
-                    res.result(http::status::bad_request);
-                    res.body() = json::serialize(body);
-                } else {
                     const auto* map = game_.FindMap(model::Map::Id(map_id));
                     if (map) {
                         res.body() = json_serializer::SerializeMap(*map);
