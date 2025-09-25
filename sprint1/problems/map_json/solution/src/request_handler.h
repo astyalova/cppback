@@ -52,17 +52,17 @@ public:
             // correct map
             else if (target.rfind(maps_prefix, 0) == 0) {
                 const std::string map_id = target.substr(maps_prefix.size());
-                    const auto* map = game_.FindMap(model::Map::Id(map_id));
-                    if (map) {
-                        res.body() = json_serializer::SerializeMap(*map);
-                    } else {
-                        json::object body;
-                        body["code"] = "mapNotFound";
-                        body["message"] = "Map not found";
-                        res.result(http::status::not_found);
-                        res.body() = json::serialize(body);
-                    }
+                const auto* map = game_.FindMap(model::Map::Id(map_id));
+                if (map) {
+                    res.body() = json_serializer::SerializeMap(*map);
+                } else {
+                    json::object body;
+                    body["code"] = "mapNotFound";
+                    body["message"] = "Map not found";
+                    res.result(http::status::not_found);
+                    res.body() = json::serialize(body);
                 }
+                
             }
             // correct prefix but inknown resource -> 404
             else {
