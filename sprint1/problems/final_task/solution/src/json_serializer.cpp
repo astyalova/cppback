@@ -7,8 +7,8 @@ std::string SerializeMaps(const std::vector<model::Map>& maps) {
     boost::json::array arr;
     for (const auto& map : maps) {
         boost::json::object obj;
-        obj["id"] = *map.GetId(); 
-        obj["name"] = map.GetName();
+        obj[json_loader::keys::ID] = *map.GetId(); 
+        obj[json_loader::keys::NAME] = map.GetName();
         arr.push_back(obj);
     }
     return boost::json::serialize(arr);
@@ -16,10 +16,22 @@ std::string SerializeMaps(const std::vector<model::Map>& maps) {
 
 std::string SerializeMap(const model::Map& map) {
     boost::json::object obj;
-    obj["id"] = *map.GetId();
-    obj["name"] = map.GetName();
+    obj[json_loader::keys::ID] = *map.GetId();
+    obj[json_loader::keys::NAME] = map.GetName();
 
     // roads
+    SerializeRoads(map, obj);
+
+    // buildings
+    SerializeBuildings(map, obj);
+
+    // offices
+    SerializeOffices(map, obj);
+
+    return boost::json::serialize(obj);
+}
+
+void SerializeRoads(const model::Map& map, boost::json::object& obj) {
     boost::json::array roads;
     for (const auto& r : map.GetRoads()) {
         boost::json::object road_obj;
@@ -27,20 +39,21 @@ std::string SerializeMap(const model::Map& map) {
         auto start = r.GetStart();
         auto end = r.GetEnd();
 
-        road_obj["x0"] = start.x;
-        road_obj["y0"] = start.y;
+        road_obj[json_loader::keys::X0] = start.x;
+        road_obj[json_loader::keys::Y0] = start.y;
 
         if (r.IsHorizontal()) {
-            road_obj["x1"] = end.x; 
+            road_obj[json_loader::keys::X1] = end.x; 
         } else if (r.IsVertical()) {
-            road_obj["y1"] = end.y;
+            road_obj[json_loader::keys::Y1] = end.y;
         }
 
         roads.push_back(road_obj);
     }
-    obj["roads"] = roads;
+    obj[json_loader::keys::ROADS] = roads;
+}
 
-    // buildings
+void SerializeBuildings(const model::Map& map, boost::json::object& obj) {
     boost::json::array buildings;
     for (const auto& b : map.GetBuildings()) {
         boost::json::object b_obj;
@@ -48,36 +61,36 @@ std::string SerializeMap(const model::Map& map) {
         auto pos = b.GetBounds().position;
         auto size = b.GetBounds().size;
 
-        b_obj["x"] = pos.x;
-        b_obj["y"] = pos.y;
-        b_obj["w"] = size.width;
-        b_obj["h"] = size.height;
+        b_obj[json_loader::keys::X] = pos.x;
+        b_obj[json_loader::keys::Y] = pos.y;
+        b_obj[json_loader::keys::W] = size.width;
+        b_obj[json_loader::keys::H] = size.height;
 
         buildings.push_back(b_obj);
     }
-    obj["buildings"] = buildings;
+    obj[json_loader::keys::BUILDINGS] = buildings;
+}
 
-    // offices
+void SerializeOffices(const model::Map& map, boost::json::object& obj) {
     boost::json::array offices;
     for (const auto& o : map.GetOffices()) {
         boost::json::object o_obj;
 
-        o_obj["id"] = *o.GetId();
+        o_obj[json_loader::keys::ID] = *o.GetId();
 
         auto pos = o.GetPosition();
         auto offset = o.GetOffset();
 
-        o_obj["x"] = pos.x;
-        o_obj["y"] = pos.y;
+        o_obj[json_loader::keys::X] = pos.x;
+        o_obj[json_loader::keys::Y] = pos.y;
         
-        o_obj["offsetX"] = offset.dx;
-        o_obj["offsetY"] = offset.dy;
+        o_obj[json_loader::keys::OFFSET_X] = offset.dx;
+        o_obj[json_loader::keys::OFFSET_Y] = offset.dy;
 
         offices.push_back(o_obj);
     }
-    obj["offices"] = offices;
-
-    return boost::json::serialize(obj);
+    obj[json_loader::keys::OFFICES] = offices;
 }
+
 
 }  // namespace json_serializer

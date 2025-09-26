@@ -11,6 +11,13 @@ namespace beast = boost::beast;
 namespace http = beast::http;
 namespace json = boost::json;
 
+namespace api {
+    inline const std::string_view API_PREFIX = "/api/v1/";
+    inline const std::string_view MAPS_PATH = "/api/v1/maps";
+    inline const std::string_view MAPS_PREFIX = "/api/v1/maps/";
+}
+
+
 class RequestHandler {
 public:
     explicit RequestHandler(model::Game& game)
@@ -30,12 +37,8 @@ public:
         res.keep_alive(req.keep_alive());
 
         try {
-            const std::string api_prefix   = "/api/v1/";
-            const std::string maps_path    = "/api/v1/maps";
-            const std::string maps_prefix  = "/api/v1/maps/";
-
             // uncorrect API version
-            if (target.rfind(api_prefix, 0) != 0) {
+            if (target.rfind(api::API_PREFIX, 0) != 0) {
                 json::object body;
                 body["code"] = "badRequest";
                 body["message"] = "Invalid API version";
@@ -45,13 +48,13 @@ public:
                 return send(std::move(res));
             }
 
-            if (target == maps_path) {
+            if (target == api::MAPS_PATH) {
                 res.body() = json_serializer::SerializeMaps(game_.GetMaps());
                 
             }
             // correct map
-            else if (target.rfind(maps_prefix, 0) == 0) {
-                const std::string map_id = target.substr(maps_prefix.size());
+            else if (target.rfind(api::MAPS_PREFIX, 0) == 0) {
+                const std::string map_id = target.substr(api::MAPS_PREFIX.size());
                 const auto* map = game_.FindMap(model::Map::Id(map_id));
                 if (map) {
                     res.body() = json_serializer::SerializeMap(*map);
@@ -64,7 +67,7 @@ public:
                 }
                 
             }
-            // correct prefix but inknown resource -> 404
+            // correct prefix but unknown resource -> 404
             else {
                 json::object body;
                 body["code"] = "notFound";
