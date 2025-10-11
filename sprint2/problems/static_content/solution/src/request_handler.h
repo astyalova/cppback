@@ -163,7 +163,7 @@ private:
     http::response<http::string_body> HandleStatic(
         const http::request<Body, http::basic_fields<Allocator>>& req
     ) const {
-        auto rel_path = UrlDecode(req.target().to_string());
+        auto rel_path = UrlDecode(std::string(req.target()));
         if (rel_path.empty() || rel_path[0] != '/') {
             rel_path.insert(rel_path.begin(), '/');
         }
@@ -194,7 +194,7 @@ private:
         const auto mime = ContentType::GetContentTypeByFileExtension(requested);
 
         if (req.method() == http::verb::head) {
-            http::response<http::empty_body> res{http::status::ok, req.version()};
+            http::response<http::string_body> res{http::status::ok, req.version()};
             res.set(http::field::content_type, mime);
             res.content_length(file_size);
             res.keep_alive(req.keep_alive());

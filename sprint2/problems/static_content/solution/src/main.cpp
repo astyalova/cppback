@@ -13,6 +13,7 @@
 
 using namespace std::literals;
 namespace net = boost::asio;
+namespace sys = boost::system;
 
 namespace {
 
