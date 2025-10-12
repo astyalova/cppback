@@ -14,6 +14,8 @@ endif()
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
+find_package(Boost REQUIRED COMPONENTS url)
+
 add_executable(game_server
 	src/main.cpp
 	src/http_server.cpp
@@ -33,5 +35,5 @@ add_executable(game_server
 	src/json_serializer.cpp
 )
 target_link_libraries(game_server PRIVATE Threads::Threads)
-target_include_directories(game_serverPRIVATE CONAN_PKG::boost)
+target_include_directories(game_server PRIVATE CONAN_PKG::boost)
 target_link_libraries(game_server CONAN_PKG::boost) 
