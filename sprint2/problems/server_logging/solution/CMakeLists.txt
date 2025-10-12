@@ -6,12 +6,6 @@ set(CMAKE_CXX_STANDARD 20)
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup(TARGETS)
 
-find_package(Boost 1.78.0 REQUIRED COMPONENTS log log_setup locale system thread)
-
-if(Boost_FOUND)
-    include_directories(${Boost_INCLUDE_DIRS})
-endif()
-
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
@@ -26,7 +20,7 @@ add_executable(game_server
     src/boost_json.cpp
     src/json_loader.h
     src/json_loader.cpp
-	src/json_serializer.h
+    src/json_serializer.h
     src/json_serializer.cpp
     src/json_logger.h
     src/json_logger.cpp
@@ -34,16 +28,7 @@ add_executable(game_server
     src/request_handler.h
 )
 
-target_include_directories(game_server PRIVATE CONAN_PKG::boost)
-
 target_link_libraries(game_server
     CONAN_PKG::boost
     Threads::Threads
-    Boost::log
-    Boost::log_setup
-    Boost::locale
-    Boost::system
-    Boost::thread
-    Boost::filesystem
 )
-
