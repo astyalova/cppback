@@ -28,4 +28,12 @@ add_executable(game_server
     src/request_handler.h
 )
 
-target_link_libraries(game_server PRIVATE ${CONAN_LIBS} Threads::Threads)
+target_link_libraries(game_server PRIVATE
+    ${CONAN_LIBS}
+    Threads::Threads
+    boost_log
+    boost_log_setup
+    boost_thread
+    boost_system
+    boost_filesystem
+)
