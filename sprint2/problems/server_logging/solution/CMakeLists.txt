@@ -30,10 +30,7 @@ add_executable(game_server
 )
 
 target_link_libraries(game_server PRIVATE
-    CONAN_PKG::boost_log
-    CONAN_PKG::boost_log_setup
-    CONAN_PKG::boost_thread
-    CONAN_PKG::boost_system
-    CONAN_PKG::boost_filesystem
+    ${CONAN_LIBS}
     Threads::Threads
 )
+
