@@ -239,7 +239,7 @@ private:
     void LogRequest(const boost::beast::http::request<Body, boost::beast::http::basic_fields<Allocator>>& req) {
         boost::json::object log_data;
         log_data["method"] = std::string(req.method_string());
-        log_data["target"] = std::string(req.target());
+        log_data["URI"] = std::string(req.target());
         log_data["version"] = (int)req.version();
 
         json_logger::LogData("request received", log_data);
