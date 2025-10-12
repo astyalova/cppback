@@ -61,7 +61,7 @@ int main(int argc, const char* argv[]) {
 
         // 5. Запустить обработчик HTTP-запросов, делегируя их обработчику запросов
         
-        http_server::ServeHttp(ioc, net::ip::tcp::endpoint{net::ip::tcp::v4(), 8080}, [&handler](auto&& req, auto&& send) {
+        http_server::ServeHttp(ioc, net::ip::tcp::endpoint{net::ip::tcp::v4(), 8080}, [&](auto&& req, auto&& send) {
             logging_handler(std::forward<decltype(req)>(req), std::forward<decltype(send)>(send));
         });
         
