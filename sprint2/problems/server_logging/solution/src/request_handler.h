@@ -242,7 +242,7 @@ private:
         log_data["target"] = std::string(req.target());
         log_data["version"] = (int)req.version();
 
-        json_logger::LogData("Incoming request", log_data);
+        json_logger::LogData("request received", log_data);
     }
 
     template <typename Body>
