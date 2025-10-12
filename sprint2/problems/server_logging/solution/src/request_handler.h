@@ -225,11 +225,13 @@ public:
     void operator()(boost::beast::http::request<Body, boost::beast::http::basic_fields<Allocator>>&& req,
                     Send&& send) {
         LogRequest(req);
-        decorated_(std::move(req),
-                   [this, &send](auto&& response) {
-                       LogResponse(res, response_time);
-                       send(std::forward<decltype(response)>(response));
-                   });
+    decorated_(std::move(req),
+        [this, &send, start = std::chrono::steady_clock::now()](auto&& response) mutable {
+            auto end = std::chrono::steady_clock::now();
+            auto response_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+            LogResponse(response, response_time);  
+            send(std::forward<decltype(response)>(response));
+        });
     }
 
 private:
