@@ -227,7 +227,7 @@ public:
         LogRequest(req);
         decorated_(std::move(req),
                    [this, &send](auto&& response) {
-                       LogResponse(response);
+                       LogResponse(res, response_time);
                        send(std::forward<decltype(response)>(response));
                    });
     }
