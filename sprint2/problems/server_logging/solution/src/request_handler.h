@@ -252,7 +252,7 @@ private:
         log_data["reason"] = std::string(res.reason());
         log_data["content_length"] = res.body().size();
 
-        json_logger::LogData("Outgoing response", log_data);
+        json_logger::LogData("response sent", log_data);
     }
 };
 
