@@ -3,18 +3,14 @@ cmake_minimum_required(VERSION 3.11)
 project(game_server CXX)
 set(CMAKE_CXX_STANDARD 20)
 
-include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+include(${CMAKE_BINARY_DIR}/conanbuildinfo_multi.cmake)
 conan_basic_setup(TARGETS)
 
-find_package(Boost 1.81.0 REQUIRED)
-if(Boost_FOUND)
-  include_directories(${Boost_INCLUDE_DIRS})
-endif()
+get_property(importTargets DIRECTORY "${CMAKE_SOURCE_DIR}" PROPERTY IMPORTED_TARGETS)
+message(STATUS "${importTargets}")
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
-
-find_package(Boost REQUIRED COMPONENTS url)
 
 add_executable(game_server
 	src/main.cpp
@@ -35,4 +31,4 @@ add_executable(game_server
 	src/request_handler.h
 )
 
-target_link_libraries(game_server PRIVATE Threads::Threads ${CONAN_LIBS})
+target_link_libraries(game_server PRIVATE CONAN_PKG::boost)
