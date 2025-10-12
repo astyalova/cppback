@@ -32,6 +32,6 @@ add_executable(game_server
 	src/json_serializer.h
 	src/json_serializer.cpp
 )
-target_link_libraries(game_server PRIVATE Threads::Threads)
+
+target_link_libraries(game_server PRIVATE Threads::Threads CONAN_PKG::boost)
 target_include_directories(game_server PRIVATE CONAN_PKG::boost)
-target_link_libraries(game_server CONAN_PKG::boost) 
