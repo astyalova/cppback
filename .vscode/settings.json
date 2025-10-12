@@ -67,6 +67,18 @@
         "format": "cpp",
         "ostream": "cpp",
         "stop_token": "cpp",
-        "thread": "cpp"
+        "thread": "cpp",
+        "bitset": "cpp",
+        "fstream": "cpp",
+        "iostream": "cpp",
+        "source_location": "cpp",
+        "codecvt": "cpp",
+        "complex": "cpp",
+        "condition_variable": "cpp",
+        "deque": "cpp",
+        "numeric": "cpp",
+        "future": "cpp",
+        "text_encoding": "cpp",
+        "cinttypes": "cpp"
     }
 }

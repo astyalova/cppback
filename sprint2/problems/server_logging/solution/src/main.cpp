@@ -57,6 +57,9 @@ int main(int argc, const char* argv[]) {
         // 4. Создаём обработчик HTTP-запросов и связываем его с моделью игры
         http_handler::RequestHandler handler{game, argv[2]};
 
+        const auto address = net::ip::make_address("0.0.0.0");
+        constexpr unsigned short port = 8080;
+
         http_handler::LoggingRequestHandler logging_handler{handler};
 
         // 5. Запустить обработчик HTTP-запросов, делегируя их обработчику запросов
@@ -67,7 +70,8 @@ int main(int argc, const char* argv[]) {
         
 
         // Эта надпись сообщает тестам о том, что сервер запущен и готов обрабатывать запросы
-        std::cout << R"({"message":"Server has started..."})" << std::endl;
+        json_logger::LogData("Server has started",
+                            boost::json::object{{"port", port}, {"address", address.to_string()}});
 
         // 6. Запускаем обработку асинхронных операций
         RunWorkers(std::max(1u, num_threads), [&ioc] {
