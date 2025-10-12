@@ -4,36 +4,34 @@ project(game_server CXX)
 set(CMAKE_CXX_STANDARD 20)
 
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-conan_basic_setup()
+conan_basic_setup(TARGETS)
+
+find_package(Boost 1.86.0 REQUIRED)
+if(Boost_FOUND)
+  include_directories(${Boost_INCLUDE_DIRS})
+endif()
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
+find_package(Boost REQUIRED COMPONENTS url)
+
 add_executable(game_server
-    src/main.cpp
-    src/http_server.cpp
-    src/http_server.h
-    src/sdk.h
-    src/model.h
-    src/model.cpp
-    src/tagged.h
-    src/boost_json.cpp
-    src/json_loader.h
-    src/json_loader.cpp
-    src/json_serializer.h
-    src/json_serializer.cpp
-    src/json_logger.h
-    src/json_logger.cpp
-    src/request_handler.cpp
-    src/request_handler.h
+	src/main.cpp
+	src/http_server.cpp
+	src/http_server.h
+	src/sdk.h
+	src/model.h
+	src/model.cpp
+	src/tagged.h
+	src/boost_json.cpp
+	src/json_loader.h
+	src/json_loader.cpp
+	src/json_logger.h
+	src/json_logger.cpp
+	src/request_handler.cpp
+	src/request_handler.h
 )
 
-target_link_libraries(game_server PRIVATE
-    ${CONAN_LIBS}
-    Threads::Threads
-    boost_log
-    boost_log_setup
-    boost_thread
-    boost_system
-    boost_filesystem
-)
+target_include_directories(game_server PRIVATE CONAN_PKG::boost)
+target_link_libraries(game_server CONAN_PKG::boost) 
