@@ -1,15 +1,13 @@
 #include "sdk.h"
+#include "json_loader.h"
+#include "request_handler.h"
+#include "json_logger.h"
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <boost/core/detail/string_view.hpp>
-
 #include <iostream>
 #include <thread>
-
-#include "json_loader.h"
-#include "request_handler.h"
-
 
 using namespace std::literals;
 namespace net = boost::asio;
@@ -23,14 +21,13 @@ void RunWorkers(unsigned n, const Fn& fn) {
     n = std::max(1u, n);
     std::vector<std::jthread> workers;
     workers.reserve(n - 1);
-    // Запускаем n-1 рабочих потоков, выполняющих функцию fn
     while (--n) {
         workers.emplace_back(fn);
     }
     fn();
 }
 
-}  // namespace
+} // namespace
 
 int main(int argc, const char* argv[]) {
     json_logger::InitLogger();
@@ -39,48 +36,45 @@ int main(int argc, const char* argv[]) {
         std::cerr << "Usage: game_server <game-config-json> <static-data-dir>"sv << std::endl;
         return EXIT_FAILURE;
     }
+
+    int exit_code = 0;
     try {
-        // 1. Загружаем карту из файла и построить модель игры
         model::Game game = json_loader::LoadGame(argv[1]);
 
-        // 2. Инициализируем io_context
         const unsigned num_threads = std::thread::hardware_concurrency();
         net::io_context ioc(num_threads);
 
-        // 3. Добавляем асинхронный обработчик сигналов SIGINT и SIGTERM
         net::signal_set signals(ioc, SIGINT, SIGTERM);
         signals.async_wait([&ioc](const sys::error_code& ec, [[maybe_unused]] int signal_number) {
             if (!ec) {
-                std::cout << "Signal "sv << signal_number << " received"sv << std::endl;
                 ioc.stop();
             }
         });
-        
-        // 4. Создаём обработчик HTTP-запросов и связываем его с моделью игры
+
         http_handler::RequestHandler handler{game, argv[2]};
+        http_handler::LoggingRequestHandler logging_handler{handler};
 
         const auto address = net::ip::make_address("0.0.0.0");
         constexpr unsigned short port = 8080;
 
-        http_handler::LoggingRequestHandler logging_handler{handler};
+        json_logger::LogData("server started",
+            boost::json::object{{"port", port}, {"address", address.to_string()}});
 
-        // 5. Запустить обработчик HTTP-запросов, делегируя их обработчику запросов
-        
-        http_server::ServeHttp(ioc, net::ip::tcp::endpoint{net::ip::tcp::v4(), 8080}, [&](auto&& req, auto&& send) {
-            logging_handler(std::forward<decltype(req)>(req), std::forward<decltype(send)>(send));
-        });
-        
+        http_server::ServeHttp(ioc, net::ip::tcp::endpoint{net::ip::tcp::v4(), port},
+            [&](auto&& req, auto&& send) {
+                logging_handler(std::forward<decltype(req)>(req), std::forward<decltype(send)>(send));
+            });
 
-        // Эта надпись сообщает тестам о том, что сервер запущен и готов обрабатывать запросы
-        json_logger::LogData("Server has started",
-                            boost::json::object{{"port", port}, {"address", address.to_string()}});
+        RunWorkers(std::max(1u, num_threads), [&ioc]{ ioc.run(); });
 
-        // 6. Запускаем обработку асинхронных операций
-        RunWorkers(std::max(1u, num_threads), [&ioc] {
-            ioc.run();
-        });
     } catch (const std::exception& ex) {
-        std::cerr << ex.what() << std::endl;
-        return EXIT_FAILURE;
+        exit_code = EXIT_FAILURE;
+        json_logger::LogData("server exited",
+            boost::json::object{{"code", exit_code}, {"exception", ex.what()}});
     }
+
+    json_logger::LogData("server exited",
+        boost::json::object{{"code", exit_code}, {"exception", exit_code == 0 ? nullptr : "unknown"}});
+
+    return exit_code;
 }

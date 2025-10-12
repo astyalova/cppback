@@ -238,19 +238,21 @@ private:
     template <typename Body, typename Allocator>
     void LogRequest(const boost::beast::http::request<Body, boost::beast::http::basic_fields<Allocator>>& req) {
         boost::json::object log_data;
-        log_data["method"] = std::string(req.method_string());
+        log_data["ip"] = req.base().at("Host"); 
         log_data["URI"] = std::string(req.target());
-        log_data["version"] = (int)req.version();
+        log_data["method"] = std::string(req.method_string());
 
         json_logger::LogData("request received", log_data);
     }
 
     template <typename Body>
-    void LogResponse(const boost::beast::http::response<Body>& res) {
+    void LogResponse(const boost::beast::http::response<Body>& res, std::uint64_t response_time_ms) {
         boost::json::object log_data;
-        log_data["status"] = static_cast<unsigned>(res.result());
-        log_data["reason"] = std::string(res.reason());
-        log_data["content_length"] = res.body().size();
+        log_data["response_time"] = response_time_ms;
+        log_data["code"] = res.result_int();
+        log_data["content_type"] = res.base().count(boost::beast::http::field::content_type) ?
+                                   std::string(res.base().at(boost::beast::http::field::content_type)) :
+                                   nullptr;
 
         json_logger::LogData("response sent", log_data);
     }
