@@ -33,6 +33,8 @@ void RunWorkers(unsigned n, const Fn& fn) {
 }  // namespace
 
 int main(int argc, const char* argv[]) {
+    json_logger::InitLogger();
+
     if (argc != 3) {
         std::cerr << "Usage: game_server <game-config-json> <static-data-dir>"sv << std::endl;
         return EXIT_FAILURE;
