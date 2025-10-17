@@ -166,7 +166,7 @@ public:
         std::string token = std::string(auth_it->value());
         auto player = players_.FindByToken(token);
         if (!player) {
-            send(MakeErrorResponse(http::status::unauthorized, "invalidToken", "Invalid token"));
+            send(MakeErrorResponse(http::status::unauthorized, "unknownToken", "Unknown token"));
             return;
         }
 
@@ -188,7 +188,11 @@ public:
         res.set(http::field::server, "MyGameServer");
         res.set(http::field::content_type, "application/json");
         res.set(http::field::cache_control, "no-cache");
-        res.body() = boost::json::serialize(result);
+        if (req.method() == http::verb::head) {
+            res.body().clear();
+        } else {
+            res.body() = boost::json::serialize(result);
+        }
         res.prepare_payload();
         send(std::move(res));
     }
@@ -205,20 +209,24 @@ public:
                     });
                 return;
             } else {
-                send(MakeErrorResponse(http::status::method_not_allowed, "methodNotAllowed", "Method not allowed"));
+                auto res = MakeErrorResponse(http::status::method_not_allowed, "methodNotAllowed", "Method not allowed");
+                res.set(http::field::allow, "POST");
+                send(std::move(res));
                 return;
             }
         }
 
         if (target == "/api/v1/game/players") {
-            if (method == http::verb::get) {
+            if (method == http::verb::get || method == http::verb::head) {
                 net::dispatch(api_strand_,
                     [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
                         self->HandleApiPlayers(std::move(req), std::move(send));
                     });
                 return;
             } else {
-                send(MakeErrorResponse(http::status::method_not_allowed, "methodNotAllowed", "Method not allowed"));
+                auto res = MakeErrorResponse(http::status::method_not_allowed, "methodNotAllowed", "Method not allowed");
+                res.set(http::field::allow, "GET, HEAD");
+                send(std::move(res));
                 return;
             }
         }
@@ -238,7 +246,9 @@ public:
                     });
                 return;
             } else {
-                send(MakeErrorResponse(http::status::method_not_allowed, "methodNotAllowed", "Method not allowed"));
+                auto res = MakeErrorResponse(http::status::method_not_allowed, "methodNotAllowed", "Method not allowed");
+                res.set(http::field::allow, "GET");
+                send(std::move(res));
                 return;
             }
         }
@@ -269,7 +279,9 @@ public:
                     });
                 return;
             } else {
-                send(MakeErrorResponse(http::status::method_not_allowed, "methodNotAllowed", "Method not allowed"));
+                auto res = MakeErrorResponse(http::status::method_not_allowed, "methodNotAllowed", "Method not allowed");
+                res.set(http::field::allow, "GET");
+                send(std::move(res));
                 return;
             }
         }
