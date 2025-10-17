@@ -156,46 +156,52 @@ public:
         send(std::move(res));
     }
 
-    void HandleApiPlayers(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
-        auto auth_it = req.find(http::field::authorization);
-        if (auth_it == req.end()) {
-            send(MakeErrorResponse(http::status::unauthorized, "invalidToken", "Missing token"));
-            return;
-        }
-
-        std::string token = std::string(auth_it->value());
-        auto player = players_.FindByToken(token);
-        if (!player) {
-            send(MakeErrorResponse(http::status::unauthorized, "invalidToken", "Invalid token"));
-            return;
-        }
-
-        auto session = player->GetSession();
-        auto session_dogs = session->GetDogs();
-
-        boost::json::array arr;
-        for (auto* dog : session_dogs) {
-            boost::json::object obj;
-            obj["name"] = dog->GetNickname();
-            obj["id"] = dog->GetToken();
-            arr.push_back(std::move(obj));
-        }
-
-        boost::json::object result;
-        result["players"] = std::move(arr);
-
-        http::response<http::string_body> res(http::status::ok, req.version());
-        res.set(http::field::server, "MyGameServer");
-        res.set(http::field::content_type, "application/json");
-        res.set(http::field::cache_control, "no-cache");
-        if (req.method() == http::verb::head) {
-            res.body().clear();
-        } else {
-            res.body() = boost::json::serialize(result);
-        }
-        res.prepare_payload();
-        send(std::move(res));
+void HandleApiPlayers(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
+    auto auth_it = req.find(http::field::authorization);
+    if (auth_it == req.end()) {
+        send(MakeErrorResponse(http::status::unauthorized, "invalidToken", "Missing token"));
+        return;
     }
+
+    std::string token = std::string(auth_it->value());
+    if (token.empty()) {
+        send(MakeErrorResponse(http::status::unauthorized, "invalidToken", "Empty token"));
+        return;
+    }
+
+    auto player = players_.FindByToken(token);
+    if (!player) {
+        send(MakeErrorResponse(http::status::unauthorized, "unknownToken", "Unknown token"));
+        return;
+    }
+
+    auto session = player->GetSession();
+    auto session_dogs = session->GetDogs();
+
+    boost::json::array arr;
+    for (auto* dog : session_dogs) {
+        boost::json::object obj;
+        obj["name"] = dog->GetNickname();
+        obj["id"] = dog->GetToken();
+        arr.push_back(std::move(obj));
+    }
+
+    boost::json::object result;
+    result["players"] = std::move(arr);
+
+    http::response<http::string_body> res(http::status::ok, req.version());
+    res.set(http::field::server, "MyGameServer");
+    res.set(http::field::content_type, "application/json");
+    res.set(http::field::cache_control, "no-cache");
+    if (req.method() == http::verb::head) {
+        res.body().clear();
+    } else {
+        res.body() = boost::json::serialize(result);
+    }
+    res.prepare_payload();
+    send(std::move(res));
+}
+
 
     void HandleApiRequest(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
         const std::string target = std::string(req.target());
