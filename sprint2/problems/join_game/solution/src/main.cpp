@@ -46,7 +46,7 @@ int main(int argc, const char* argv[]) {
         model::Game game = json_loader::LoadGame(game_config_file_path);
 
         // 1.1. Контроллер игроков
-        players::Players players;
+        player::Players players;
 
         // 2. Инициализируем io_context с количеством потоков = числу аппаратных потоков
         const unsigned num_threads = std::thread::hardware_concurrency();
