@@ -222,10 +222,7 @@ class Game {
 public:
     using Maps = std::vector<Map>;
 
-    void AddMap(Map map) {
-        map_id_to_index_.emplace(map.GetId(), maps_.size());
-        maps_.emplace_back(std::move(map));
-    }
+    void AddMap(Map map);
 
     const Maps& GetMaps() const noexcept {
         return maps_;
