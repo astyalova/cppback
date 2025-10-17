@@ -2,6 +2,7 @@
 #include "json_loader.h"
 #include "request_handler.h"
 #include "json_logger.h"
+#include "http_server.h"  // <- обязательно подключаем твой http_server
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/signal_set.hpp>
@@ -42,14 +43,11 @@ int main(int argc, const char* argv[]) {
     try {
         model::Game game = json_loader::LoadGame(argv[1]);
 
-        const unsigned num_threads = std::thread::hardware_concurrency();
-        net::io_context ioc(num_threads);
+        net::io_context ioc;
 
         net::signal_set signals(ioc, SIGINT, SIGTERM);
-        signals.async_wait([&ioc](const sys::error_code& ec, [[maybe_unused]] int signal_number) {
-            if (!ec) {
-                ioc.stop();
-            }
+        signals.async_wait([&ioc](const sys::error_code& ec, [[maybe_unused]] int) {
+            if (!ec) ioc.stop();
         });
 
         player::Players players;
@@ -63,12 +61,14 @@ int main(int argc, const char* argv[]) {
         json_logger::LogData("server started",
             boost::json::object{{"port", port}, {"address", address.to_string()}});
 
+        // Запускаем HTTP-сервер
         http_server::ServeHttp(ioc, net::ip::tcp::endpoint{net::ip::tcp::v4(), port},
             [&](auto&& req, auto&& send) {
                 logging_handler(std::forward<decltype(req)>(req), std::forward<decltype(send)>(send));
             });
 
-        RunWorkers(std::max(1u, num_threads), [&ioc]{ ioc.run(); });
+        const unsigned num_threads = std::thread::hardware_concurrency();
+        RunWorkers(num_threads, [&ioc]{ ioc.run(); });
 
     } catch (const std::exception& ex) {
         exit_code = EXIT_FAILURE;

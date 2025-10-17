@@ -100,7 +100,7 @@ public:
     }
 
     void HandleApiJoin(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
-        boost::json::error_code ec;
+        boost::system::error_code ec;
         auto body = boost::json::parse(req.body(), ec);
 
         if (ec || !body.is_object()) {
