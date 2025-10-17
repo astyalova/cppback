@@ -7,6 +7,7 @@
 
 #include <boost/json.hpp>
 #include <boost/beast/http.hpp>
+#include <boost/asio.hpp> 
 #include <string>
 #include <filesystem>
 #include <fstream>
@@ -21,6 +22,7 @@ namespace http = beast::http;
 namespace json = boost::json;
 namespace sys = boost::system;
 namespace fs = std::filesystem;
+namespace net = boost::asio;
 
 namespace api {
     inline const std::string_view API_PREFIX = "/api/v1/";
