@@ -1,5 +1,4 @@
 #pragma once
-
 #include "http_server.h"
 #include "model.h"
 #include "json_serializer.h"
@@ -8,21 +7,20 @@
 
 #include <boost/json.hpp>
 #include <boost/beast/http.hpp>
-#include <boost/asio.hpp>
 #include <string>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <unordered_map>
 #include <algorithm>
+#include <random>
 
 namespace http_handler {
-
 namespace beast = boost::beast;
 namespace http = beast::http;
 namespace json = boost::json;
+namespace sys = boost::system;
 namespace fs = std::filesystem;
-namespace net = boost::asio;
 
 namespace api {
     inline const std::string_view API_PREFIX = "/api/v1/";
@@ -46,7 +44,8 @@ struct ContentType {
     constexpr static std::string_view IMAGE_TIFF = "image/tiff";
     constexpr static std::string_view IMAGE_SVG_XML = "image/svg+xml";
     constexpr static std::string_view AUDIO_MPEG = "audio/mpeg";
-        
+    constexpr static std::string_view UNKNOWN = "";
+
     static std::string_view GetContentTypeByFileExtension(fs::path file_path) {
         static const std::unordered_map<std::string, std::string_view> types = {
             {".htm", TEXT_HTML}, {".html", TEXT_HTML},
@@ -74,9 +73,8 @@ class RequestHandler : public std::enable_shared_from_this<RequestHandler> {
 public:
     using Strand = net::strand<net::io_context::executor_type>;
 
-    explicit RequestHandler(model::Game& game, player::Players& players,
-                            const std::string &data_path, Strand api_strand)
-        : game_{game},
+    explicit RequestHandler(model::Game& game, player::Players& players, const std::string &data_path, Strand api_strand) :
+          game_{game},
           players_{players},
           data_path_{fs::weakly_canonical(data_path)},
           api_strand_{std::move(api_strand)} {}
@@ -99,15 +97,8 @@ public:
         );
     }
 
-private:
-    model::Game& game_;
-    player::Players& players_;
-    fs::path data_path_;
-    Strand api_strand_;
-
-    void HandleApiJoin(http::request<http::string_body>&& req,
-                       std::function<void(http::response<http::string_body>)> send) {
-        boost::system::error_code ec;
+    void HandleApiJoin(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
+        boost::json::error_code ec;
         auto body = boost::json::parse(req.body(), ec);
 
         if (ec || !body.is_object()) {
@@ -124,14 +115,19 @@ private:
         std::string user_name = obj["userName"].as_string().c_str();
         std::string map_id = obj["mapId"].as_string().c_str();
 
-        auto map = game_.FindMap(model::Map::Id{map_id});
+        const auto* map = game_.FindMap(model::Map::Id{map_id});
         if (!map) {
             send(MakeErrorResponse(http::status::not_found, "mapNotFound", "Map not found"));
             return;
         }
 
-        auto dog = map->CreateDog(user_name); 
-        auto [player, token] = players_.Add(dog, map->GetSession());
+        model::GameSession* session = game_.FindSession(map);
+        if (!session) {
+            session = game_.CreateSession(map);
+        }
+
+        model::Dog* dog = session->CreateDog(user_name);
+        auto [player, token] = players_.Add(dog, session);
 
         boost::json::object result;
         result["authToken"] = token;
@@ -145,8 +141,7 @@ private:
         send(std::move(res));
     }
 
-    void HandleApiPlayers(http::request<http::string_body>&& req,
-                          std::function<void(http::response<http::string_body>)> send) {
+    void HandleApiPlayers(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
         auto auth_it = req.find(http::field::authorization);
         if (auth_it == req.end()) {
             send(MakeErrorResponse(http::status::unauthorized, "invalidToken", "Missing token"));
@@ -161,13 +156,13 @@ private:
         }
 
         auto session = player->GetSession();
-        const auto& session_players = session->GetPlayers();
+        auto session_dogs = session->GetDogs();
 
         boost::json::array arr;
-        for (auto* p : session_players) {
+        for (auto* dog : session_dogs) {
             boost::json::object obj;
-            obj["name"] = p->GetSession()->GetMap()->GetId(); 
-            obj["id"] = p->GetDogId();
+            obj["name"] = dog->GetNickname();
+            obj["id"] = dog->GetToken();
             arr.push_back(std::move(obj));
         }
 
@@ -181,8 +176,7 @@ private:
         send(std::move(res));
     }
 
-    void HandleApiRequest(http::request<http::string_body>&& req,
-                          std::function<void(http::response<http::string_body>)> send) {
+    void HandleApiRequest(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
         const std::string target = std::string(req.target());
         const auto method = req.method();
 
@@ -244,6 +238,31 @@ private:
         net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
                 send(MakeErrorResponse(http::status::not_found, "notFound", "Unknown endpoint"));
             });
+    }
+
+private:
+    model::Game& game_;
+    player::Players& players_;
+    fs::path data_path_;
+    Strand api_strand_;
+
+    static std::string UrlDecode(std::string_view str) {
+        std::string result;
+        result.reserve(str.size());
+        for (size_t i = 0; i < str.size(); ++i) {
+            if (str[i] == '%' && i + 2 < str.size()) {
+                int value = 0;
+                std::istringstream iss(std::string(str.substr(i + 1, 2)));
+                iss >> std::hex >> value;
+                result.push_back(static_cast<char>(value));
+                i += 2;
+            } else if (str[i] == '+') {
+                result.push_back(' ');
+            } else {
+                result.push_back(str[i]);
+            }
+        }
+        return result;
     }
 
     template <typename Body, typename Allocator>
@@ -313,25 +332,51 @@ private:
         res.prepare_payload();
         return res;
     }
+};
 
-    static std::string UrlDecode(std::string_view str) {
-        std::string result;
-        result.reserve(str.size());
-        for (size_t i = 0; i < str.size(); ++i) {
-            if (str[i] == '%' && i + 2 < str.size()) {
-                int value = 0;
-                std::istringstream iss(std::string(str.substr(i + 1, 2)));
-                iss >> std::hex >> value;
-                result.push_back(static_cast<char>(value));
-                i += 2;
-            } else if (str[i] == '+') {
-                result.push_back(' ');
-            } else {
-                result.push_back(str[i]);
-            }
-        }
-        return result;
+template <typename Handler>
+class LoggingRequestHandler {
+public:
+    explicit LoggingRequestHandler(Handler& decorated)
+        : decorated_{decorated} {}
+
+    template <typename Body, typename Allocator, typename Send>
+    void operator()(boost::beast::http::request<Body, boost::beast::http::basic_fields<Allocator>>&& req,
+                    Send&& send) {
+        LogRequest(req);
+    decorated_(std::move(req),
+        [this, &send, start = std::chrono::steady_clock::now()](auto&& response) mutable {
+            auto end = std::chrono::steady_clock::now();
+            auto response_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+            LogResponse(response, response_time);  
+            send(std::forward<decltype(response)>(response));
+        });
+    }
+
+private:
+    Handler& decorated_;
+
+  template <typename Body, typename Allocator>
+    void LogRequest(const boost::beast::http::request<Body, boost::beast::http::basic_fields<Allocator>>& req) {
+        boost::json::object log_data;
+        log_data["ip"] = "0.0.0.0";
+        log_data["URI"] = std::string(req.target());
+        log_data["method"] = std::string(req.method_string());
+
+        json_logger::LogData("request received", log_data);
+    }
+
+    template <typename Body>
+    void LogResponse(const boost::beast::http::response<Body>& res, std::uint64_t response_time_ms) {
+        boost::json::object log_data;
+        log_data["response_time"] = response_time_ms;
+        log_data["code"] = res.result_int();
+        log_data["content_type"] = res.base().count(boost::beast::http::field::content_type) ?
+                                   std::string(res.base().at(boost::beast::http::field::content_type)) :
+                                   nullptr;
+
+        json_logger::LogData("response sent", log_data);
     }
 };
 
-} // namespace http_handler
+}  // namespace http_handler
