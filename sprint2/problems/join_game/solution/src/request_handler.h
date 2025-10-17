@@ -166,7 +166,7 @@ public:
         std::string token = std::string(auth_it->value());
         auto player = players_.FindByToken(token);
         if (!player) {
-            send(MakeErrorResponse(http::status::unauthorized, "unknownToken", "Unknown token"));
+            send(MakeErrorResponse(http::status::unauthorized, "invalidToken", "Invalid token"));
             return;
         }
 
@@ -209,7 +209,7 @@ public:
                     });
                 return;
             } else {
-                auto res = MakeErrorResponse(http::status::method_not_allowed, "methodNotAllowed", "Method not allowed");
+                auto res = MakeErrorResponse(http::status::method_not_allowed, "invalidMethod", "Method not allowed");
                 res.set(http::field::allow, "POST");
                 send(std::move(res));
                 return;
@@ -224,7 +224,7 @@ public:
                     });
                 return;
             } else {
-                auto res = MakeErrorResponse(http::status::method_not_allowed, "methodNotAllowed", "Method not allowed");
+                auto res = MakeErrorResponse(http::status::method_not_allowed, "invalidMethod", "Method not allowed");
                 res.set(http::field::allow, "GET, HEAD");
                 send(std::move(res));
                 return;
@@ -246,7 +246,7 @@ public:
                     });
                 return;
             } else {
-                auto res = MakeErrorResponse(http::status::method_not_allowed, "methodNotAllowed", "Method not allowed");
+                auto res = MakeErrorResponse(http::status::method_not_allowed, "invalidMethod", "Method not allowed");
                 res.set(http::field::allow, "GET");
                 send(std::move(res));
                 return;
@@ -279,7 +279,7 @@ public:
                     });
                 return;
             } else {
-                auto res = MakeErrorResponse(http::status::method_not_allowed, "methodNotAllowed", "Method not allowed");
+                auto res = MakeErrorResponse(http::status::method_not_allowed, "invalidMethod", "Method not allowed");
                 res.set(http::field::allow, "GET");
                 send(std::move(res));
                 return;
