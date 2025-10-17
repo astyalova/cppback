@@ -115,8 +115,18 @@ public:
             return;
         }
 
-        std::string user_name = obj["userName"].as_string().c_str();
-        std::string map_id = obj["mapId"].as_string().c_str();
+        if (!obj["userName"].is_string() || !obj["mapId"].is_string()) {
+            send(MakeErrorResponse(http::status::bad_request, "invalidArgument", "Bad field types"));
+            return;
+        }
+
+        std::string user_name = Trim(obj["userName"].as_string());
+        std::string map_id = Trim(obj["mapId"].as_string());
+
+        if (user_name.empty()) {
+            send(MakeErrorResponse(http::status::bad_request, "invalidArgument", "Empty userName"));
+            return;
+        }
 
         const auto* map = game_.FindMap(model::Map::Id{map_id});
         if (!map) {
@@ -137,7 +147,9 @@ public:
         result["playerId"] = player->GetDogId();
 
         http::response<http::string_body> res(http::status::ok, req.version());
+        res.set(http::field::server, "MyGameServer");
         res.set(http::field::content_type, "application/json");
+        res.set(http::field::cache_control, "no-cache");
         res.body() = boost::json::serialize(result);
         res.prepare_payload();
 
@@ -173,7 +185,9 @@ public:
         result["players"] = std::move(arr);
 
         http::response<http::string_body> res(http::status::ok, req.version());
+        res.set(http::field::server, "MyGameServer");
         res.set(http::field::content_type, "application/json");
+        res.set(http::field::cache_control, "no-cache");
         res.body() = boost::json::serialize(result);
         res.prepare_payload();
         send(std::move(res));
@@ -183,59 +197,81 @@ public:
         const std::string target = std::string(req.target());
         const auto method = req.method();
 
-        if (target == "/api/v1/game/join" && method == http::verb::post) {
-            net::dispatch(api_strand_,
-                [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
-                    self->HandleApiJoin(std::move(req), std::move(send));
-                });
-            return;
+        if (target == "/api/v1/game/join") {
+            if (method == http::verb::post) {
+                net::dispatch(api_strand_,
+                    [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
+                        self->HandleApiJoin(std::move(req), std::move(send));
+                    });
+                return;
+            } else {
+                send(MakeErrorResponse(http::status::method_not_allowed, "methodNotAllowed", "Method not allowed"));
+                return;
+            }
         }
 
-        if (target == "/api/v1/game/players" && method == http::verb::get) {
-            net::dispatch(api_strand_,
-                [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
-                    self->HandleApiPlayers(std::move(req), std::move(send));
-                });
-            return;
+        if (target == "/api/v1/game/players") {
+            if (method == http::verb::get) {
+                net::dispatch(api_strand_,
+                    [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
+                        self->HandleApiPlayers(std::move(req), std::move(send));
+                    });
+                return;
+            } else {
+                send(MakeErrorResponse(http::status::method_not_allowed, "methodNotAllowed", "Method not allowed"));
+                return;
+            }
         }
 
-        if (target == api::MAPS_PATH && method == http::verb::get) {
-            net::dispatch(api_strand_,
-                [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
-                    http::response<http::string_body> res{http::status::ok, req.version()};
-                    res.set(http::field::server, "MyGameServer");
-                    res.set(http::field::content_type, ContentType::APPLICATION_JSON);
-                    res.keep_alive(req.keep_alive());
-                    res.body() = json_serializer::SerializeMaps(self->game_.GetMaps());
-                    res.prepare_payload();
-                    send(std::move(res));
-                });
-            return;
+        if (target == api::MAPS_PATH) {
+            if (method == http::verb::get) {
+                net::dispatch(api_strand_,
+                    [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
+                        http::response<http::string_body> res{http::status::ok, req.version()};
+                        res.set(http::field::server, "MyGameServer");
+                        res.set(http::field::content_type, ContentType::APPLICATION_JSON);
+                        res.set(http::field::cache_control, "no-cache");
+                        res.keep_alive(req.keep_alive());
+                        res.body() = json_serializer::SerializeMaps(self->game_.GetMaps());
+                        res.prepare_payload();
+                        send(std::move(res));
+                    });
+                return;
+            } else {
+                send(MakeErrorResponse(http::status::method_not_allowed, "methodNotAllowed", "Method not allowed"));
+                return;
+            }
         }
 
-        if (target.rfind(api::MAPS_PREFIX, 0) == 0 && method == http::verb::get) {
-            const std::string map_id = target.substr(api::MAPS_PREFIX.size());
-            net::dispatch(api_strand_,
-                [self = shared_from_this(), req = std::move(req), send = std::move(send), map_id]() mutable {
-                    http::response<http::string_body> res{http::status::ok, req.version()};
-                    res.set(http::field::server, "MyGameServer");
-                    res.set(http::field::content_type, ContentType::APPLICATION_JSON);
-                    res.keep_alive(req.keep_alive());
+        if (target.rfind(api::MAPS_PREFIX, 0) == 0) {
+            if (method == http::verb::get) {
+                const std::string map_id = target.substr(api::MAPS_PREFIX.size());
+                net::dispatch(api_strand_,
+                    [self = shared_from_this(), req = std::move(req), send = std::move(send), map_id]() mutable {
+                        http::response<http::string_body> res{http::status::ok, req.version()};
+                        res.set(http::field::server, "MyGameServer");
+                        res.set(http::field::content_type, ContentType::APPLICATION_JSON);
+                        res.set(http::field::cache_control, "no-cache");
+                        res.keep_alive(req.keep_alive());
 
-                    const auto* map = self->game_.FindMap(model::Map::Id(map_id));
-                    if (map) {
-                        res.body() = json_serializer::SerializeMap(*map);
-                    } else {
-                        boost::json::object body;
-                        body["code"] = "mapNotFound";
-                        body["message"] = "Map not found";
-                        res.result(http::status::not_found);
-                        res.body() = boost::json::serialize(body);
-                    }
-                    res.prepare_payload();
-                    send(std::move(res));
-                });
-            return;
+                        const auto* map = self->game_.FindMap(model::Map::Id(map_id));
+                        if (map) {
+                            res.body() = json_serializer::SerializeMap(*map);
+                        } else {
+                            boost::json::object body;
+                            body["code"] = "mapNotFound";
+                            body["message"] = "Map not found";
+                            res.result(http::status::not_found);
+                            res.body() = boost::json::serialize(body);
+                        }
+                        res.prepare_payload();
+                        send(std::move(res));
+                    });
+                return;
+            } else {
+                send(MakeErrorResponse(http::status::method_not_allowed, "methodNotAllowed", "Method not allowed"));
+                return;
+            }
         }
 
         net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
@@ -266,6 +302,14 @@ private:
             }
         }
         return result;
+    }
+
+    static std::string Trim(std::string_view sv) {
+        size_t b = 0;
+        while (b < sv.size() && std::isspace(static_cast<unsigned char>(sv[b]))) ++b;
+        size_t e = sv.size();
+        while (e > b && std::isspace(static_cast<unsigned char>(sv[e-1]))) --e;
+        return std::string(sv.substr(b, e - b));
     }
 
     template <typename Body, typename Allocator>
@@ -331,6 +375,7 @@ private:
 
         http::response<http::string_body> res(status, 11);
         res.set(http::field::content_type, "application/json");
+        res.set(http::field::cache_control, "no-cache");
         res.body() = boost::json::serialize(body);
         res.prepare_payload();
         return res;
