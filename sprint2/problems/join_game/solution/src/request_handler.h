@@ -156,14 +156,22 @@ public:
         send(std::move(res));
     }
 
-void HandleApiPlayers(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
+void HandleApiPlayers(http::request<http::string_body>&& req,
+                      std::function<void(http::response<http::string_body>)> send) {
     auto auth_it = req.find(http::field::authorization);
     if (auth_it == req.end()) {
         send(MakeErrorResponse(http::status::unauthorized, "invalidToken", "Missing token"));
         return;
     }
 
-    std::string token = std::string(auth_it->value());
+    std::string auth_header = std::string(auth_it->value());
+    const std::string bearer_prefix = "Bearer ";
+    if (auth_header.size() < bearer_prefix.size() || auth_header.substr(0, bearer_prefix.size()) != bearer_prefix) {
+        send(MakeErrorResponse(http::status::unauthorized, "invalidToken", "Missing or invalid Bearer token"));
+        return;
+    }
+
+    std::string token = auth_header.substr(bearer_prefix.size());
     if (token.empty()) {
         send(MakeErrorResponse(http::status::unauthorized, "invalidToken", "Empty token"));
         return;
@@ -193,14 +201,17 @@ void HandleApiPlayers(http::request<http::string_body>&& req, std::function<void
     res.set(http::field::server, "MyGameServer");
     res.set(http::field::content_type, "application/json");
     res.set(http::field::cache_control, "no-cache");
+
     if (req.method() == http::verb::head) {
         res.body().clear();
     } else {
         res.body() = boost::json::serialize(result);
     }
+
     res.prepare_payload();
     send(std::move(res));
 }
+
 
 
     void HandleApiRequest(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
