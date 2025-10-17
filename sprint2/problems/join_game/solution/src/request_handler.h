@@ -1,4 +1,5 @@
 #pragma once
+
 #include "http_server.h"
 #include "model.h"
 #include "json_serializer.h"
@@ -7,7 +8,7 @@
 
 #include <boost/json.hpp>
 #include <boost/beast/http.hpp>
-#include <boost/asio.hpp> 
+#include <boost/asio.hpp>
 #include <string>
 #include <filesystem>
 #include <fstream>
