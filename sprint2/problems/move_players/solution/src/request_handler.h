@@ -356,13 +356,12 @@ public:
         const std::string target = std::string(req.target());
         const auto method = req.method();
 
-        if (target.rfind("/api/", 0) != 0) {
+        if (target.rfind("/api/v1/", 0) != 0) {
+            if (target.rfind("/api/", 0) == 0) {
+                send(MakeErrorResponse(http::status::bad_request, "invalidApiVersion", "Invalid API version"));
+                return;
+            }
             return send(HandleStatic(req));
-        }
-
-        if (target.rfind("/api/v1/", 0) == 0) {
-            send(MakeErrorResponse(http::status::bad_request, "invalidEndpoint", "Bad API request"));
-            return;
         }
 
         if (target == "/api/v1/game/join") {
@@ -480,9 +479,8 @@ public:
             }
         }
 
-        net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
-                send(MakeErrorResponse(http::status::not_found, "notFound", "Unknown endpoint"));
-            });
+        send(MakeErrorResponse(http::status::bad_request, "invalidEndpoint", "Unknown API endpoint"));
+        return;
     }
 
 private:
