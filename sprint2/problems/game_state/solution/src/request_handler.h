@@ -16,6 +16,7 @@
 #include <unordered_map>
 #include <algorithm>
 #include <random>
+#include <regex>
 
 namespace http_handler {
 namespace beast = boost::beast;
@@ -220,14 +221,16 @@ void HandleApiGameState(http::request<http::string_body>&& req,
         return;
     }
 
-    std::string auth_header = std::string(auth_it->value());
-    const std::string bearer_prefix = "Bearer ";
-    if (auth_header.size() < bearer_prefix.size() || auth_header.substr(0, bearer_prefix.size()) != bearer_prefix) {
+    static const std::regex token_regex(R"(Bearer\s([0-9a-fA-F]{32}))");
+    std::smatch match_results;
+    std::string auth = std::string(auth_it->value());
+
+    if (!std::regex_match(auth, match_results, token_regex)) {
         send(MakeErrorResponse(http::status::unauthorized, "invalidToken", "Missing or invalid Bearer token"));
         return;
     }
 
-    std::string token = auth_header.substr(bearer_prefix.size());
+    std::string token = match_results[1].str();
     auto player = players_.FindByToken(token);
     if (!player) {
         send(MakeErrorResponse(http::status::unauthorized, "unknownToken", "Player token has not been found"));
