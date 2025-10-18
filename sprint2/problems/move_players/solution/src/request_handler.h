@@ -356,6 +356,10 @@ public:
         const std::string target = std::string(req.target());
         const auto method = req.method();
 
+        if (target.rfind("/api/", 0) != 0) {
+            return send(HandleStatic(req));
+        }
+
         if (target.rfind("/api/v1/", 0) == 0) {
             send(MakeErrorResponse(http::status::bad_request, "invalidEndpoint", "Bad API request"));
             return;
