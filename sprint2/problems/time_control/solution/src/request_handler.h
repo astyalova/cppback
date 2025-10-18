@@ -352,44 +352,6 @@ public:
         send(std::move(res));
     }
 
-    void HandleApiTick(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
-        // check content type
-        auto content_type_it = req.find(http::field::content_type);
-        if (content_type_it == req.end() ||
-            std::string(content_type_it->value()) != "application/json") {
-            send(MakeErrorResponse(http::status::bad_request, "invalidArgument", "Invalid content type"));
-            return;
-        }
-
-        boost::system::error_code ec;
-        auto body = boost::json::parse(req.body(), ec);
-        if (ec || !body.is_object()) {
-            send(MakeErrorResponse(http::status::bad_request, "invalidArgument", "Failed to parse tick request JSON"));
-            return;
-        }
-
-        auto obj = body.as_object();
-        if (!obj.contains("timeDelta") || !obj["timeDelta"].is_int64()) {
-            send(MakeErrorResponse(http::status::bad_request, "invalidArgument", "Failed to parse tick request JSON"));
-            return;
-        }
-
-        int64_t time_delta = obj["timeDelta"].as_int64();
-        if (time_delta < 0) {
-            send(MakeErrorResponse(http::status::bad_request, "invalidArgument", "timeDelta must be >= 0"));
-            return;
-        }
-
-        players_.MovePlayers(time_delta);
-        http::response<http::string_body> res(http::status::ok, req.version());
-        res.set(http::field::server, "MyGameServer");
-        res.set(http::field::content_type, "application/json");
-        res.set(http::field::cache_control, "no-cache");
-        res.body() = "{}";
-        res.prepare_payload();
-        send(std::move(res));
-    }
-
     void HandleApiRequest(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
         const std::string target = std::string(req.target());
         const auto method = req.method();
@@ -422,21 +384,6 @@ public:
                 net::dispatch(api_strand_,
                     [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
                         self->HandleApiAction(std::move(req), std::move(send));
-                    });
-                return;
-            } else {
-                auto res = MakeErrorResponse(http::status::method_not_allowed, "invalidMethod", "Method not allowed");
-                res.set(http::field::allow, "POST");
-                send(std::move(res));
-                return;
-            }
-        }
-
-        if (target == "/api/v1/game/tick") {
-            if (method == http::verb::post) {
-                net::dispatch(api_strand_,
-                    [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
-                        self->HandleApiTick(std::move(req), std::move(send));
                     });
                 return;
             } else {
