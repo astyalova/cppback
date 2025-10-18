@@ -228,14 +228,9 @@ void HandleApiGameState(http::request<http::string_body>&& req,
     }
 
     std::string token = auth_header.substr(bearer_prefix.size());
-    if (token.empty()) {
-        send(MakeErrorResponse(http::status::unauthorized, "invalidToken", "Empty token"));
-        return;
-    }
-
     auto player = players_.FindByToken(token);
     if (!player) {
-        send(MakeErrorResponse(http::status::unauthorized, "invalidToken", "Invalid token"));
+        send(MakeErrorResponse(http::status::unauthorized, "unknownToken", "Player token has not been found"));
         return;
     }
 
