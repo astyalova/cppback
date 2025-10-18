@@ -321,7 +321,7 @@ class Game {
 public:
     using Maps = std::vector<Map>;
 
-    Game(double speed) : speed_{speed}
+    Game(double speed = {1.0}) : speed_{speed}
     {}
 
     void AddMap(Map map);
