@@ -356,6 +356,11 @@ public:
         const std::string target = std::string(req.target());
         const auto method = req.method();
 
+        if (target.rfind("/api/v1/", 0) == 0) {
+            send(MakeErrorResponse(http::status::bad_request, "invalidEndpoint", "Bad API request"));
+            return;
+        }
+
         if (target == "/api/v1/game/join") {
             if (method == http::verb::post) {
                 net::dispatch(api_strand_,
