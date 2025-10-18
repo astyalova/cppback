@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <vector>
 #include <optional>
+#include <unordered_set>
 
 namespace player {
     using namespace model;
