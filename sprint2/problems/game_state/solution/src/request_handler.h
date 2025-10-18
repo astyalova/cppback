@@ -235,7 +235,7 @@ void HandleApiGameState(http::request<http::string_body>&& req,
 
     auto player = players_.FindByToken(token);
     if (!player) {
-        send(MakeErrorResponse(http::status::unauthorized, "unknownToken", "Unknown token"));
+        send(MakeErrorResponse(http::status::unauthorized, "invalidToken", "Invalid Token"));
         return;
     }
 
