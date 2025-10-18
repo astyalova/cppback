@@ -358,7 +358,7 @@ public:
 
         if (target.rfind("/api/v1/", 0) != 0) {
             if (target.rfind("/api/", 0) == 0) {
-                send(MakeErrorResponse(http::status::bad_request, "invalidApiVersion", "Invalid API version"));
+                send(MakeErrorResponse(http::status::bad_request, "badRequest", "Invalid API version"));
                 return;
             }
             return send(HandleStatic(req));
