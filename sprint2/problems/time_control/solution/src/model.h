@@ -268,10 +268,19 @@ public:
     GameSession& operator=(const GameSession&) = delete;
 
     Dog* CreateDog(const std::string& name) {
-        auto dog = dogs_.emplace_back(std::make_unique<Dog>(dogs_.size(), name)).get();
+        auto dog = dogs_.emplace_back(
+            std::make_unique<Dog>(
+                dogs_.size(),
+                name,
+                GenerateNewPosition(),
+                Dog::Speed{map_->GetSpeed(), map_->GetSpeed()}
+            )
+        ).get();
+
         dogs_id_[dog->GetToken()] = dog;
         return dog;
     }
+
 
     Dog::Coordinate GenerateNewPosition() const noexcept {
         return Dog::Coordinate{double(map_->GetRoads().at(0).GetStart().x), double(map_->GetRoads().at(0).GetStart().y)};
