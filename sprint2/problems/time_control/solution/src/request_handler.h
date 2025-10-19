@@ -479,7 +479,7 @@ public:
             }
         }
 
-        send(MakeErrorResponse(http::status::bad_request, "invalidEndpoint", "Unknown API endpoint"));
+        send(MakeErrorResponse(http::status::bad_request, "invalidArgument", "Unknown API endpoint"));
         return;
     }
 
