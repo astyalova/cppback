@@ -374,7 +374,7 @@ void HandleApiGameState(http::request<http::string_body>&& req,
         }
 
         net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
-                send(MakeErrorResponse(http::status::not_found, "notFound", "Unknown endpoint"));
+                send(MakeErrorResponse(http::status::not_found, "invalidMethod", "Unknown endpoint"));
             });
     }
 

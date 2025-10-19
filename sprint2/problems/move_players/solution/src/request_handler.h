@@ -432,7 +432,7 @@ public:
             }
         }
 
-        if (target == "api/v1/game/tick") {
+        if (target == "/api/v1/game/tick") {
             if (method == http::verb::post) {
                 net::dispatch(api_strand_,
                     [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
