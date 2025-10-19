@@ -1,7 +1,9 @@
 #pragma once
+
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <random>
 #include <memory>
 
 #include "tagged.h"
@@ -121,10 +123,10 @@ public:
     using Buildings = std::vector<Building>;
     using Offices = std::vector<Office>;
 
-    Map(Id id, std::string name) noexcept
+    Map(Id id, std::string name, double speed) noexcept
         : id_(std::move(id))
-        , name_(std::move(name)) {
-    }
+        , name_(std::move(name))
+        , speed_(speed) {}
 
     const Id& GetId() const noexcept {
         return id_;
@@ -156,6 +158,10 @@ public:
 
     void AddOffice(Office office);
 
+    double GetSpeed() const noexcept {
+        return speed_;
+    }
+
 private:
     using OfficeIdToIndex = std::unordered_map<Office::Id, size_t, util::TaggedHasher<Office::Id>>;
 
@@ -166,6 +172,7 @@ private:
 
     OfficeIdToIndex warehouse_id_to_index_;
     Offices offices_;
+    double speed_;
 };
 
 class Dog {
@@ -188,8 +195,8 @@ public:
         double y;
     };
 
-    Dog(std::uint64_t token, std::string nickname, Coordinate coord = {0.0, 0.0})
-        : token_(token), nickname_(std::move(nickname)), coord_(coord) {}
+    Dog(std::uint64_t token, std::string nickname, Coordinate coord = {0.0, 0.0}, Speed speed = {0.0, 0.0})
+        : token_(token), nickname_(std::move(nickname)), coord_(coord), speed_(speed) {}
 
     std::uint64_t GetToken() const noexcept {
         return token_;
@@ -214,6 +221,17 @@ public:
         return 'U';
     }
 
+    Direction GetDirFromChar() const noexcept {
+        if(GetDirAsChar() == 'R') {
+            return Direction::EAST;
+        } else if(GetDirAsChar() == 'L') {
+            return Direction::WEST;
+        } else if(GetDirAsChar() == 'D') {
+            return Direction::SOUTH;
+        } 
+        return Direction::NORTH;
+    }
+
     Coordinate GetCoord() const noexcept {
         return coord_;
     }
@@ -228,6 +246,10 @@ public:
 
     void SetDir(Direction dir) {
         dir_ = dir;
+    }
+
+    void SetCoord(Coordinate coord) {
+        coord_ = coord;
     }
 
 private:
@@ -249,6 +271,31 @@ public:
         auto dog = dogs_.emplace_back(std::make_unique<Dog>(dogs_.size(), name)).get();
         dogs_id_[dog->GetToken()] = dog;
         return dog;
+    }
+
+    Dog::Coordinate GenerateNewPosition() const noexcept {
+        return Dog::Coordinate{double(map_->GetRoads().at(0).GetStart().x), double(map_->GetRoads().at(0).GetStart().y)};
+
+        std::random_device rand_device; 
+        std::mt19937_64 rand_engine(rand_device());
+
+        std::uniform_int_distribution<std::mt19937_64::result_type> unif(0, map_->GetRoads().size() - 1);
+
+        const auto& road = map_->GetRoads().at(unif(rand_engine));
+        auto r_start = road.GetStart();
+        auto r_end = road.GetEnd();
+        
+        Dog::Coordinate pos{0.0, 0.0}; 
+        if (std::abs(r_start.x - r_end.x) > std::abs(r_start.y - r_end.y)) {
+            std::uniform_real_distribution<double> unif_d(std::min(r_start.x, r_end.x), std::max(r_start.x, r_end.x));
+            pos.x = unif_d(rand_engine);
+            pos.y = (((pos.x - double(r_start.x)) * double(r_end.y - r_start.y)) / double(r_end.x - r_start.x)) + double(r_start.y);
+        } else {
+            std::uniform_real_distribution<double> unif_d(std::min(r_start.y, r_end.y), std::max(r_start.y, r_end.y));
+            pos.y = unif_d(rand_engine);
+            pos.x = (((pos.y - double(r_start.y)) * double(r_end.x - r_start.x)) / double(r_end.y - r_start.y)) + double(r_start.x);
+        }
+        return pos;
     }
 
     std::vector<Dog*> GetDogs() const {
@@ -273,6 +320,9 @@ private:
 class Game {
 public:
     using Maps = std::vector<Map>;
+
+    Game(double speed = {1.0}) : speed_{speed}
+    {}
 
     void AddMap(Map map);
 
@@ -302,6 +352,10 @@ public:
         return nullptr;
     }
 
+    double GetSpeed() const noexcept {
+        return speed_;
+    }
+
 private:
     using MapIdHasher = util::TaggedHasher<Map::Id>;
     using MapIdToIndex = std::unordered_map<Map::Id, size_t, MapIdHasher>;
@@ -310,6 +364,7 @@ private:
     std::vector<Map> maps_;
     MapIdToIndex map_id_to_index_;
     Sessions sessions_;
+    double speed_;
 };
 
 
