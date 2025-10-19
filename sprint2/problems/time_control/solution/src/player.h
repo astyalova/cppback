@@ -30,7 +30,7 @@ namespace player {
         }
 
         void ChangeDir(std::optional<model::Dog::Direction> dir) {
-            auto dog_speed = dog_->GetSpeed();
+            auto dog_speed = game_->GetMap()->GetSpeed();;
             if(!dir) {
                 dog_speed = model::Dog::Speed{0.0, 0.0};
             } else {
