@@ -268,97 +268,102 @@ public:
 
     }
 
-    void HandleApiAction(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
-        // check content type
-        auto content_type_it = req.find(http::field::content_type);
-        if (content_type_it == req.end() ||
-            std::string(content_type_it->value()) != "application/json") {
-            send(MakeErrorResponse(http::status::bad_request, "invalidArgument", "Invalid content type"));
-            return;
-        }
-
-        // check authorization
-        auto auth_it = req.find(http::field::authorization);
-        if (auth_it == req.end()) {
-            send(MakeErrorResponse(http::status::unauthorized, "invalidToken", "Authorization header is required"));
-            return;
-        }
-
-        static const std::regex token_regex(R"(Bearer\s([0-9a-fA-F]{32}))");
-        std::smatch match_results;
-        std::string auth = std::string(auth_it->value());
-        if (!std::regex_match(auth, match_results, token_regex)) {
-            send(MakeErrorResponse(http::status::unauthorized, "invalidToken", "Missing or invalid Bearer token"));
-            return;
-        }
-
-        std::string token = match_results[1].str();
-        auto player = players_.FindByToken(token);
-        if (!player) {
-            send(MakeErrorResponse(http::status::unauthorized, "unknownToken", "Player token has not been found"));
-            return;
-        }
-
-        boost::system::error_code ec;
-        auto body = boost::json::parse(req.body(), ec);
-        if (ec || !body.is_object()) {
-            send(MakeErrorResponse(http::status::bad_request, "invalidArgument", "Failed to parse action"));
-            return;
-        }
-
-        auto obj = body.as_object();
-        if (!obj.contains("move") || !obj["move"].is_string()) {
-            send(MakeErrorResponse(http::status::bad_request,"invalidArgument", "Field 'move' is required"));
-            return;
-        }
-
-        std::string move = obj["move"].as_string().c_str();
-
-        static const std::unordered_set<std::string> valid_moves = {"L", "R", "U", "D", ""};
-        if (valid_moves.find(move) == valid_moves.end()) {
-            send(MakeErrorResponse(http::status::bad_request, "invalidArgument", "Invalid move value"));
-            return;
-        }
-
-        model::Dog* dog = player->GetDog();
-        model::Dog::Speed new_speed{0.0, 0.0};
-        model::Dog::Direction new_dir = dog->GetDir();
-
-        model::GameSession* session = player->GetSession();
-        double speed_value = 0.0;
-        if (session && session->GetMap()) {
-            speed_value = session->GetMap()->GetSpeed();
-        } else {
-            speed_value = game_.GetSpeed();
-        }
-
-        if (move == "L") {
-            new_speed = model::Dog::Speed{-speed_value, 0.0};
-            new_dir = model::Dog::Direction::WEST;
-        } else if (move == "R") {
-            new_speed = model::Dog::Speed{speed_value, 0.0};
-            new_dir = model::Dog::Direction::EAST;
-        } else if (move == "U") {
-            new_speed = model::Dog::Speed{0.0, -speed_value};
-            new_dir = model::Dog::Direction::NORTH;
-        } else if (move == "D") {
-            new_speed = model::Dog::Speed{0.0, speed_value};
-            new_dir = model::Dog::Direction::SOUTH;
-        } else {
-            new_speed = model::Dog::Speed{0.0, 0.0};
-        }
-
-        dog->SetSpeed(new_speed);
-        dog->SetDir(new_dir);
-
-        http::response<http::string_body> res(http::status::ok, req.version());
-        res.set(http::field::server, "MyGameServer");
-        res.set(http::field::content_type, "application/json");
-        res.set(http::field::cache_control, "no-cache");
-        res.body() = "{}";
-        res.prepare_payload();
-        send(std::move(res));
+void HandleApiAction(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
+    // check content type
+    auto content_type_it = req.find(http::field::content_type);
+    if (content_type_it == req.end() ||
+        std::string(content_type_it->value()) != "application/json") {
+        send(MakeErrorResponse(http::status::bad_request, "invalidArgument", "Invalid content type"));
+        return;
     }
+
+    // check authorization
+    auto auth_it = req.find(http::field::authorization);
+    if (auth_it == req.end()) {
+        send(MakeErrorResponse(http::status::unauthorized, "invalidToken", "Authorization header is required"));
+        return;
+    }
+
+    static const std::regex token_regex(R"(Bearer\s([0-9a-fA-F]{32}))");
+    std::smatch match_results;
+    std::string auth = std::string(auth_it->value());
+    if (!std::regex_match(auth, match_results, token_regex)) {
+        send(MakeErrorResponse(http::status::unauthorized, "invalidToken", "Missing or invalid Bearer token"));
+        return;
+    }
+
+    std::string token = match_results[1].str();
+    auto player = players_.FindByToken(token);
+    if (!player) {
+        send(MakeErrorResponse(http::status::unauthorized, "unknownToken", "Player token has not been found"));
+        return;
+    }
+
+    boost::system::error_code ec;
+    auto body = boost::json::parse(req.body(), ec);
+    if (ec || !body.is_object()) {
+        send(MakeErrorResponse(http::status::bad_request, "invalidArgument", "Failed to parse action"));
+        return;
+    }
+
+    auto obj = body.as_object();
+    if (!obj.contains("move") || !obj["move"].is_string()) {
+        send(MakeErrorResponse(http::status::bad_request,"invalidArgument", "Field 'move' is required"));
+        return;
+    }
+
+    std::string move = obj["move"].as_string().c_str();
+    static const std::unordered_set<std::string> valid_moves = {"L", "R", "U", "D", ""};
+    if (valid_moves.find(move) == valid_moves.end()) {
+        send(MakeErrorResponse(http::status::bad_request, "invalidArgument", "Invalid move value"));
+        return;
+    }
+
+    model::Dog* dog = player->GetDog();
+    if (!dog) {
+        send(MakeErrorResponse(http::status::internal_server_error, "internal", "Dog not found for player"));
+        return;
+    }
+
+    model::GameSession* session = player->GetSession();
+    if (!session || !session->GetMap()) {
+        send(MakeErrorResponse(http::status::internal_server_error, "internal", "Session or map not found for player"));
+        return;
+    }
+    double speed_value = session->GetMap()->GetSpeed();
+
+    model::Dog::Speed new_speed{0.0, 0.0};
+    model::Dog::Direction new_dir = dog->GetDir();
+
+    if (move == "L") {
+        new_speed = model::Dog::Speed{-speed_value, 0.0};
+        new_dir = model::Dog::Direction::WEST;
+    } else if (move == "R") {
+        new_speed = model::Dog::Speed{speed_value, 0.0};
+        new_dir = model::Dog::Direction::EAST;
+    } else if (move == "U") {
+        new_speed = model::Dog::Speed{0.0, -speed_value};
+        new_dir = model::Dog::Direction::NORTH;
+    } else if (move == "D") {
+        new_speed = model::Dog::Speed{0.0, speed_value};
+        new_dir = model::Dog::Direction::SOUTH;
+    } else {
+        new_speed = model::Dog::Speed{0.0, 0.0};
+        // направление не меняем
+    }
+
+    dog->SetSpeed(new_speed);
+    dog->SetDir(new_dir);
+
+    http::response<http::string_body> res(http::status::ok, req.version());
+    res.set(http::field::server, "MyGameServer");
+    res.set(http::field::content_type, "application/json");
+    res.set(http::field::cache_control, "no-cache");
+    res.body() = "{}";
+    res.prepare_payload();
+    send(std::move(res));
+}
+
 
         void HandleApiTick(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
         // check content type
