@@ -273,7 +273,7 @@ public:
                 dogs_.size(),
                 name,
                 GenerateNewPosition(),
-                Dog::Speed{map_->GetSpeed(), map_->GetSpeed()}
+                Dog::Speed{0.0, 0.0} 
             )
         ).get();
 

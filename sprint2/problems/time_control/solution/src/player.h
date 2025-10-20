@@ -30,24 +30,30 @@ namespace player {
         }
 
         void ChangeDir(std::optional<model::Dog::Direction> dir) {
-            auto dog_speed = game_->GetMap()->GetSpeed();;
-            if(!dir) {
+            model::Dog::Speed dog_speed{0.0, 0.0};
+            if (!dir) {
                 dog_speed = model::Dog::Speed{0.0, 0.0};
             } else {
-                double speed(game_->GetMap()->GetSpeed());
-                if(dir == model::Dog::Direction::NORTH) {
-                    dog_speed = model::Dog::Speed{0.0, -speed};
-                } else if(dir == model::Dog::Direction::SOUTH) {
-                    dog_speed = model::Dog::Speed{0.0, speed};
-                } else if(dir == model::Dog::Direction::WEST) {
-                    dog_speed = model::Dog::Speed{-speed, 0.0};
-                } else {
-                    dog_speed = model::Dog::Speed{speed, 0.0};
+                double speed = game_->GetMap()->GetSpeed(); 
+                switch (*dir) {
+                    case model::Dog::Direction::NORTH:
+                        dog_speed = model::Dog::Speed{0.0, -speed};
+                        break;
+                    case model::Dog::Direction::SOUTH:
+                        dog_speed = model::Dog::Speed{0.0, speed};
+                        break;
+                    case model::Dog::Direction::WEST:
+                        dog_speed = model::Dog::Speed{-speed, 0.0};
+                        break;
+                    case model::Dog::Direction::EAST:
+                        dog_speed = model::Dog::Speed{speed, 0.0};
+                        break;
                 }
                 dog_->SetDir(*dir);
             }
             dog_->SetSpeed(dog_speed);
         }
+
 
         void Move(int time) {
             auto speed = dog_->GetSpeed();
