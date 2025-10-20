@@ -324,20 +324,28 @@ public:
         model::Dog::Speed new_speed{0.0, 0.0};
         model::Dog::Direction new_dir = dog->GetDir();
 
+        model::GameSession* session = player->GetSession();
+        double speed_value = 0.0;
+        if (session && session->GetMap()) {
+            speed_value = session->GetMap()->GetSpeed();
+        } else {
+            speed_value = game_.GetSpeed();
+        }
+
         if (move == "L") {
-            new_speed = {-1.0, 0.0};
+            new_speed = model::Dog::Speed{-speed_value, 0.0};
             new_dir = model::Dog::Direction::WEST;
         } else if (move == "R") {
-            new_speed = {1.0, 0.0};
+            new_speed = model::Dog::Speed{speed_value, 0.0};
             new_dir = model::Dog::Direction::EAST;
         } else if (move == "U") {
-            new_speed = {0.0, -1.0};
+            new_speed = model::Dog::Speed{0.0, -speed_value};
             new_dir = model::Dog::Direction::NORTH;
         } else if (move == "D") {
-            new_speed = {0.0, 1.0};
+            new_speed = model::Dog::Speed{0.0, speed_value};
             new_dir = model::Dog::Direction::SOUTH;
         } else {
-            new_speed = {0.0, 0.0};
+            new_speed = model::Dog::Speed{0.0, 0.0};
         }
 
         dog->SetSpeed(new_speed);
