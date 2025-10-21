@@ -349,7 +349,6 @@ void HandleApiAction(http::request<http::string_body>&& req, std::function<void(
         new_dir = model::Dog::Direction::SOUTH;
     } else {
         new_speed = model::Dog::Speed{0.0, 0.0};
-        // направление не меняем
     }
 
     dog->SetSpeed(new_speed);

@@ -123,7 +123,7 @@ public:
     using Buildings = std::vector<Building>;
     using Offices = std::vector<Office>;
 
-    Map(Id id, std::string name, double speed) noexcept
+    Map(Id id, std::string name, const double speed) noexcept
         : id_(std::move(id))
         , name_(std::move(name))
         , speed_(speed) {}
@@ -195,7 +195,10 @@ public:
         double y;
     };
 
-    Dog(std::uint64_t token, std::string nickname, Coordinate coord = {0.0, 0.0}, Speed speed = {0.0, 0.0})
+    static constexpr Coordinate DEFAULT_POSITION = Coordinate{0.0, 0.0};
+    static constexpr Speed DEFAULT_SPEED = Speed{0.0, 0.0};
+
+    Dog(std::uint64_t token, std::string nickname, Coordinate coord = DEFAULT_POSITION, Speed speed = DEFAULT_SPEED)
         : token_(token), nickname_(std::move(nickname)), coord_(coord), speed_(speed) {}
 
     std::uint64_t GetToken() const noexcept {
@@ -255,9 +258,9 @@ public:
 private:
     std::uint64_t token_;
     std::string nickname_;
-    Coordinate coord_ = {0.0, 0.0};
+    Coordinate coord_ {0.0, 0.0};
     Direction dir_ = Direction::NORTH;
-    Speed speed_ = {0.0, 0.0};
+    Speed speed_ {0.0, 0.0};
 };
 
 class GameSession {
@@ -272,8 +275,7 @@ public:
             std::make_unique<Dog>(
                 dogs_.size(),
                 name,
-                GenerateNewPosition(),
-                Dog::Speed{0.0, 0.0} 
+                GenerateNewPosition() 
             )
         ).get();
 
