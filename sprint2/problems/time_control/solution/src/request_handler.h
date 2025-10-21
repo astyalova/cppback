@@ -332,6 +332,14 @@ void HandleApiAction(http::request<http::string_body>&& req, std::function<void(
     }
     double speed_value = session->GetMap()->GetSpeed();
 
+    {
+    boost::json::object log;
+    log["map_id"] = *session->GetMap()->GetId();
+    log["map_speed"] = speed_value;
+    log["player_token"] = token;
+    json_logger::LogData("dbg map speed", log);
+    }
+
     model::Dog::Speed new_speed{0.0, 0.0};
     model::Dog::Direction new_dir = dog->GetDir();
 
@@ -350,6 +358,14 @@ void HandleApiAction(http::request<http::string_body>&& req, std::function<void(
     } else {
         new_speed = model::Dog::Speed{0.0, 0.0};
     }
+
+{
+    boost::json::object log;
+    log["dog"] = dog->GetNickname();
+    log["speed_x"] = new_speed.x;
+    log["speed_y"] = new_speed.y;
+    json_logger::LogData("dbg dog speed", log);
+}
 
     dog->SetSpeed(new_speed);
     dog->SetDir(new_dir);
