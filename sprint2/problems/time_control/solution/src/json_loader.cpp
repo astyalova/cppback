@@ -29,12 +29,19 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
     try {
         boost::json::value jv = boost::json::parse(json_string);
         auto root_obj = jv.as_object();
-        auto map = root_obj.at("maps").as_array();
+        double default_speed = root_obj.at("defaultDogSpeed").as_double();
+        auto map_array = root_obj.at("maps").as_array();
 
-        for(const auto& obj_val : map) {
+        for (const auto& obj_val : map_array) {
             const auto& obj = obj_val.as_object();
-            auto mp = model::Map{model::Map::Id(obj.at(keys::ID).as_string().data()), obj.at(keys::NAME).as_string().data(),
-            obj.contains("defaultDogSpeed") ? obj.at("defaultDogSpeed").as_double() : game.GetSpeed()};
+
+            double speed = obj.contains("dogSpeed") ? obj.at("dogSpeed").as_double() : default_speed;
+
+            auto mp = model::Map{
+                model::Map::Id(obj.at(keys::ID).as_string().data()),
+                obj.at(keys::NAME).as_string().data(),
+                speed
+            };
 
             LoadRoads(mp, obj);
             LoadBuildings(mp, obj);
