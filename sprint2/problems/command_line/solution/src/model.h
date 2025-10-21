@@ -175,15 +175,20 @@ private:
     double speed_;
 };
 
+enum class Direction {
+    NORTH,
+    SOUTH,
+    WEST,
+    EAST
+};
+
+
+std::string GetDirAsStr(Direction dir) noexcept;
+Direction GetDirFromStr(const std::string& dir) noexcept;
+
 class Dog {
 public:
 
-    enum class Direction {
-        NORTH,
-        SOUTH,
-        WEST,
-        EAST
-    };
 
     struct Coordinate {
         double x;
@@ -270,12 +275,12 @@ public:
     GameSession(const GameSession&) = delete;
     GameSession& operator=(const GameSession&) = delete;
 
-    Dog* CreateDog(const std::string& name) {
+    Dog* CreateDog(const std::string& name, bool spawn = false) {
         auto dog = dogs_.emplace_back(
             std::make_unique<Dog>(
                 dogs_.size(),
                 name,
-                GenerateNewPosition() 
+                GenerateNewPosition(spawn) 
             )
         ).get();
 
@@ -284,8 +289,11 @@ public:
     }
 
 
-    Dog::Coordinate GenerateNewPosition() const noexcept {
-        return Dog::Coordinate{double(map_->GetRoads().at(0).GetStart().x), double(map_->GetRoads().at(0).GetStart().y)};
+    Dog::Coordinate GenerateNewPosition(bool randomize_spawn_point = false) const noexcept {
+        if (!randomize_spawn_point) {
+            return Dog::Coordinate {double(map_->GetRoads().at(0).GetStart().x), 
+                        double(map_->GetRoads().at(0).GetStart().y)};
+        }
 
         std::random_device rand_device; 
         std::mt19937_64 rand_engine(rand_device());

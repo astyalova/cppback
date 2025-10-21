@@ -1,16 +1,17 @@
 #pragma once
 
 #include "json_loader.h"
+#include "json_serializer.h"
 #include "model.h"
 #include "player.h"
 
 #include <boost/json.hpp>
 #include <stdexcept>
+#include <string>
+#include <chrono>
 
 using namespace model;
-using namespace players;
-namespace json = boost::json;
-using namespace std::literals;
+using namespace player;
 
 class AppErrorException : public std::invalid_argument {
 public:
@@ -34,9 +35,9 @@ private:
 
 class Application {
 public:
-    Application(Game&& game, bool randomize_spawn_points = false, bool auto_tick_enabled = false)
+    Application(Game&& game, bool spawn = false, bool auto_tick_enabled = false)
         : game_(std::move(game))
-        , randomize_spawn_points_(randomize_spawn_points)
+        , spawn_(spawn)
         , auto_tick_enabled_(auto_tick_enabled) {}
 
     Application(const Application&) = delete;
@@ -44,39 +45,41 @@ public:
 
     [[nodiscard]] bool GetAutoTick() const noexcept { return auto_tick_enabled_; }
 
-    [[nodiscard]] json::value GetMapsShortInfo() const noexcept {
-        return json_parser::MapsToShortJson(game_.GetMaps());
+    [[nodiscard]] std::string GetMapsShortInfo() const noexcept {
+        return json_serializer::SerializeMaps(game_.GetMaps());
     }
 
-    [[nodiscard]] json::value GetMapInfo(const std::string& map_id) const {
+    [[nodiscard]] std::string GetMapInfo(const std::string& map_id) const {
         auto map = game_.FindMap(Map::Id{map_id});
         if (!map) {
-            throw AppErrorException("Map not found"s, AppErrorException::Category::InvalidMapId);
+            throw AppErrorException("Map not found", AppErrorException::Category::InvalidMapId);
         }
-        return json_parser::MapToJson(map);
+        return json_serializer::SerializeMap(*map);
     }
 
-    [[nodiscard]] json::value GetPlayers(const Players::Token& token) const {
+    [[nodiscard]] boost::json::value GetPlayers(const std::string& token) {
         auto player = players_.FindByToken(token);
         if (!player) {
-            throw AppErrorException("No player with such token"s, AppErrorException::Category::NoPlayerWithToken);
+            throw AppErrorException("No player with such token", AppErrorException::Category::NoPlayerWithToken);
         }
 
-        json::object result;
+        boost::json::object result;
         for (const auto& dog : player->GetSession()->GetDogs()) {
-            result[std::to_string(dog->GetId())] = json::object{{"name"sv, dog->GetName()}};
+            result[std::to_string(dog->GetToken())] = boost::json::object{
+                {"name", dog->GetNickname()}
+            };
         }
         return result;
     }
 
-    [[nodiscard]] json::value JoinGame(const std::string& user_name, const std::string& map_id) {
+    [[nodiscard]] boost::json::value JoinGame(const std::string& user_name, const std::string& map_id) {
         if (user_name.empty()) {
-            throw AppErrorException("Empty player name"s, AppErrorException::Category::EmptyPlayerName);
+            throw AppErrorException("Empty player name", AppErrorException::Category::EmptyPlayerName);
         }
 
         auto map = game_.FindMap(Map::Id{map_id});
         if (!map) {
-            throw AppErrorException("Map not found"s, AppErrorException::Category::InvalidMapId);
+            throw AppErrorException("Map not found", AppErrorException::Category::InvalidMapId);
         }
 
         auto session = game_.FindSession(map);
@@ -84,39 +87,39 @@ public:
             session = game_.CreateSession(map);
         }
 
-        auto dog = session->CreateDog(user_name, randomize_spawn_points_);
-        auto player_info = players_.Add(dog, session);
+        auto dog = session->CreateDog(user_name, spawn_);
+        std::pair<Player*, std::string> player_info = players_.Add(dog, session);
 
-        return json::object{
-            {"authToken"sv, player_info.token},
-            {"playerId"sv, player_info.player->GetId()}
+        return boost::json::object{
+            {"authToken", player_info.second},
+            {"playerId", player_info.first->GetDogId()}
         };
     }
 
-    [[nodiscard]] json::value GetGameState(const Players::Token& token) const {
+    [[nodiscard]] boost::json::value GetGameState(const Players::Token& token) {
         auto player = players_.FindByToken(token);
         if (!player) {
             throw AppErrorException("No player with such token"s, AppErrorException::Category::NoPlayerWithToken);
         }
 
-        json::object players_by_id;
+        boost::json::object players_by_id;
         for (const auto& dog : player->GetSession()->GetDogs()) {
-            players_by_id[std::to_string(dog->GetId())] = json::object{
-                {"pos"sv, json::array{dog->GetPosition().x, dog->GetPosition().y}},
-                {"speed"sv, json::array{dog->GetSpeed().x, dog->GetSpeed().y}},
-                {"dir"sv, GetDirAsChar(dog->GetDir())}
+            players_by_id[std::to_string(dog->GetToken())] = boost::json::object {
+                {"pos", boost::json::array{dog->GetCoord().x, dog->GetCoord().y}},
+                {"speed", boost::json::array{dog->GetSpeed().x, dog->GetSpeed().y}},
+                {"dir", GetDirAsStr(dog->GetDir())}
             };
         }
 
-        return json::object{{"players"sv, players_by_id}};
+        return boost::json::object{{"players"sv, players_by_id}};
     }
 
     void ActionPlayer(const Players::Token& token, const std::string& direction_str) {
-        std::optional<Direction> dir;
+        std::optional<model::Direction> dir;
         if (!direction_str.empty()) {
             try {
-                dir = GetDirFromChar()(direction_str);
-            } catch (const DirectionConvertException&) {
+                dir = GetDirFromStr(direction_str);
+            } catch (...) {
                 throw AppErrorException("Invalid direction"s, AppErrorException::Category::InvalidDirection);
             }
         }
@@ -134,7 +137,7 @@ public:
     }
 
     void Tick(std::chrono::milliseconds delta) {
-        if (delta < 0ms) {
+        if (delta < static_cast<std::__1::chrono::milliseconds>(0)) {
             throw AppErrorException("Negative time delta"s, AppErrorException::Category::InvalidTime);
         }
         players_.MovePlayers(delta);
@@ -143,6 +146,6 @@ public:
 private:
     Game game_;
     Players players_;
-    bool randomize_spawn_points_;
+    bool spawn_;
     bool auto_tick_enabled_;
 };

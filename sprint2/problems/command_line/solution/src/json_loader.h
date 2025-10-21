@@ -35,7 +35,5 @@ model::Game LoadGame(const std::filesystem::path& json_path);
 void LoadRoads(model::Map& mp, const boost::json::value& obj);
 void LoadBuildings(model::Map& mp, const boost::json::value& obj);
 void LoadOffices(model::Map& mp, const boost::json::value& obj);
-json::value MapsToShortJson(const model::Maps& maps);
-json::value MapToJson(const model::Map* map);
 
 }  // namespace json_loader

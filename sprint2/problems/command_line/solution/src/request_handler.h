@@ -333,20 +333,20 @@ void HandleApiAction(http::request<http::string_body>&& req, std::function<void(
     double speed_value = session->GetMap()->GetSpeed();
 
     model::Dog::Speed new_speed{0.0, 0.0};
-    model::Dog::Direction new_dir = dog->GetDir();
+    model::Direction new_dir = dog->GetDir();
 
     if (move == "L") {
         new_speed = model::Dog::Speed{-speed_value, 0.0};
-        new_dir = model::Dog::Direction::WEST;
+        new_dir = model::Direction::WEST;
     } else if (move == "R") {
         new_speed = model::Dog::Speed{speed_value, 0.0};
-        new_dir = model::Dog::Direction::EAST;
+        new_dir = model::Direction::EAST;
     } else if (move == "U") {
         new_speed = model::Dog::Speed{0.0, -speed_value};
-        new_dir = model::Dog::Direction::NORTH;
+        new_dir = model::Direction::NORTH;
     } else if (move == "D") {
         new_speed = model::Dog::Speed{0.0, speed_value};
-        new_dir = model::Dog::Direction::SOUTH;
+        new_dir = model::Direction::SOUTH;
     } else {
         new_speed = model::Dog::Speed{0.0, 0.0};
     }
@@ -392,7 +392,8 @@ void HandleApiAction(http::request<http::string_body>&& req, std::function<void(
             return;
         }
 
-        players_.MovePlayers(time_delta);
+        std::chrono::milliseconds delta_ms(time_delta);
+        players_.MovePlayers(delta_ms);
         http::response<http::string_body> res(http::status::ok, req.version());
         res.set(http::field::server, "MyGameServer");
         res.set(http::field::content_type, "application/json");

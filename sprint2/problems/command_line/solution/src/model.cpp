@@ -35,4 +35,25 @@ void Game::AddMap(Map map) {
     }
 }
 
+std::string GetDirAsStr(Direction dir) noexcept {
+    static const auto info = std::unordered_map<Direction, std::string>{
+        {Direction::NORTH, "U"},
+        {Direction::SOUTH, "D"},
+        {Direction::WEST, "L"},
+        {Direction::EAST, "R"}
+    };
+    return info.at(dir);
+    }
+
+Direction GetDirFromStr(const std::string& dir) noexcept {
+    static const auto info = std::unordered_map<std::string, Direction>{
+        {"U", Direction::NORTH},
+        {"D", Direction::SOUTH},
+        {"L", Direction::WEST},
+        {"R", Direction::EAST}
+    };
+
+    return info.at(dir);
+}
+
 }  // namespace model

@@ -29,23 +29,23 @@ namespace player {
             return dog_;
         }
 
-        void ChangeDir(std::optional<model::Dog::Direction> dir) {
+        void ChangeDir(std::optional<model::Direction> dir) {
             model::Dog::Speed dog_speed{0.0, 0.0};
             if (!dir) {
                 dog_speed = model::Dog::Speed{0.0, 0.0};
             } else {
                 double speed = game_->GetMap()->GetSpeed(); 
                 switch (*dir) {
-                    case model::Dog::Direction::NORTH:
+                    case model::Direction::NORTH:
                         dog_speed = model::Dog::Speed{0.0, -speed};
                         break;
-                    case model::Dog::Direction::SOUTH:
+                    case model::Direction::SOUTH:
                         dog_speed = model::Dog::Speed{0.0, speed};
                         break;
-                    case model::Dog::Direction::WEST:
+                    case model::Direction::WEST:
                         dog_speed = model::Dog::Speed{-speed, 0.0};
                         break;
-                    case model::Dog::Direction::EAST:
+                    case model::Direction::EAST:
                         dog_speed = model::Dog::Speed{speed, 0.0};
                         break;
                 }
@@ -55,13 +55,17 @@ namespace player {
         }
 
 
-        void Move(int time) {
+        void SetSpeed(Dog::Speed speed) {
+            dog_->SetSpeed(speed);
+        }
+
+        void Move(std::__1::chrono::milliseconds time) {
             auto speed = dog_->GetSpeed();
             if (speed.x == 0.0 && speed.y == 0.0) {
                 return;
             }
 
-            auto time_s_d = double(time) * 0.001;
+            auto time_s_d = std::chrono::duration<double>(time).count();
             auto current_pos = dog_->GetCoord();
             auto next_pos = model::Dog::Coordinate{current_pos.x + (speed.x * time_s_d), current_pos.y + (speed.y * time_s_d)};
 
@@ -92,22 +96,22 @@ namespace player {
                 const auto& road = roads.at(roadIndex);
                 switch (dog_->GetDir())
                 {
-                case model::Dog::Direction::NORTH: {
+                case model::Direction::NORTH: {
                     next_pos.y = std::min(road.GetStart().y, road.GetEnd().y);
                     next_pos.y -= 0.4;
                     break;
                 }
-                case model::Dog::Direction::SOUTH: {
+                case model::Direction::SOUTH: {
                     next_pos.y = std::max(road.GetStart().y, road.GetEnd().y);
                     next_pos.y += 0.4;
                     break;
                 }
-                case model::Dog::Direction::WEST: {
+                case model::Direction::WEST: {
                     next_pos.x = std::min(road.GetStart().x, road.GetEnd().x);
                     next_pos.x -= 0.4;
                     break;
                 }
-                case model::Dog::Direction::EAST: {
+                case model::Direction::EAST: {
                     next_pos.x = std::max(road.GetStart().x, road.GetEnd().x);
                     next_pos.x += 0.4;
                     break;
@@ -181,12 +185,11 @@ namespace player {
             return nullptr;
         }
 
-        void MovePlayers(int time) {
+        void MovePlayers(std::__1::chrono::milliseconds time) {
         for (const auto& player : players_) {
             player->Move(time);
         }
     }
-
     private:
         std::vector<std::unique_ptr<Player>> players_;
         std::unordered_map<Token, Player*> player_token_;
