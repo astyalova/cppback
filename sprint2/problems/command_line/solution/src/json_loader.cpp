@@ -106,4 +106,41 @@ void LoadOffices(model::Map& mp, const boost::json::value& obj) {
     }
 }
 
+json::value MapsToShortJson(const model::Maps& maps) {
+    json::array maps_data;
+    for (const auto& map : maps) {
+        maps_data.emplace_back(json::object({
+            {keys::ID, *map.GetId()},
+            {keys::NAME, map.GetName()}
+        }));
+    }
+    return maps_data;
+}
+
+json::value MapToJson(const model::Map* map) {
+    json::object map_data;
+    map_data[keys::ID] = *(map->GetId());
+    map_data[keys::NAME] = map->GetName();
+
+    json::array roads;
+    for (const auto& road : map->GetRoads()) {
+        roads.emplace_back(RoadToJson(road));
+    }
+    map_data[keys::ROADS] = std::move(roads);
+
+    json::array buildings;
+    for (const auto& building : map->GetBuildings()) {
+        buildings.emplace_back(BuildingToJson(building));
+    }
+    map_data[keys::BUILDINGS] = std::move(buildings);
+
+    json::array offices;
+    for (const auto& office : map->GetOffices()) {
+        offices.emplace_back(OfficeToJson(office));
+    }
+    map_data[keys::OFFICES] = std::move(offices);
+
+    return map_data;
+}
+
 }  // namespace json_loader

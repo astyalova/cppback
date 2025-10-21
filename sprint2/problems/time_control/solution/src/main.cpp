@@ -8,8 +8,12 @@
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/signal_set.hpp>
+#include <boost/program_options.hpp>
+#include <fstream>
 #include <iostream>
 #include <thread>
+#include <optional>
+#include <vector>
 
 using namespace std::literals;
 namespace net = boost::asio;
