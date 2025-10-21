@@ -21,7 +21,7 @@ public:
     }
 
     void Start() {
-        if (period_ < static_cast<std::__1::chrono::milliseconds>(0)) {
+        if (period_ < static_cast<std::chrono::milliseconds>(0)) {
             return;
         }
         net::dispatch(strand_, [self = shared_from_this()] {

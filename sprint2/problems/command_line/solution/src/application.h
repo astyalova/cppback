@@ -137,7 +137,7 @@ public:
     }
 
     void Tick(std::chrono::milliseconds delta) {
-        if (delta < static_cast<std::__1::chrono::milliseconds>(0)) {
+        if (delta < static_cast<std::chrono::milliseconds>(0)) {
             throw AppErrorException("Negative time delta"s, AppErrorException::Category::InvalidTime);
         }
         players_.MovePlayers(delta);

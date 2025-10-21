@@ -59,7 +59,7 @@ namespace player {
             dog_->SetSpeed(speed);
         }
 
-        void Move(std::__1::chrono::milliseconds time) {
+        void Move(std::chrono::milliseconds time) {
             auto speed = dog_->GetSpeed();
             if (speed.x == 0.0 && speed.y == 0.0) {
                 return;
@@ -185,7 +185,7 @@ namespace player {
             return nullptr;
         }
 
-        void MovePlayers(std::__1::chrono::milliseconds time) {
+        void MovePlayers(std::chrono::milliseconds time) {
         for (const auto& player : players_) {
             player->Move(time);
         }
