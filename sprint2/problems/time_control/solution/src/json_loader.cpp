@@ -34,7 +34,7 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
         for(const auto& obj_val : map) {
             const auto& obj = obj_val.as_object();
             auto mp = model::Map{model::Map::Id(obj.at(keys::ID).as_string().data()), obj.at(keys::NAME).as_string().data(),
-            obj.contains("dogSpeed") ? obj.at("dogSpeed").as_double() : game.GetSpeed()};
+            obj.contains("defaultDogSpeed") ? obj.at("defaultDogSpeed").as_double() : game.GetSpeed()};
 
             LoadRoads(mp, obj);
             LoadBuildings(mp, obj);
