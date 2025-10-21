@@ -303,35 +303,35 @@ private:
         const auto method = req.method();
 
         if (target == "/api/v1/game/join" && method == http::verb::post) {
-            net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]{
+            net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
                 self->HandleApiJoin(std::move(req), std::move(send));
             });
             return;
         }
 
         if (target == "/api/v1/game/player/action" && method == http::verb::post) {
-            net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]{
+            net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
                 self->HandleApiAction(std::move(req), std::move(send));
             });
             return;
         }
 
         if (target == "/api/v1/game/players" && (method == http::verb::get || method == http::verb::head)) {
-            net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]{
+            net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
                 self->HandleApiPlayers(std::move(req), std::move(send));
             });
             return;
         }
 
         if(target == "/api/v1/game/state" && (method == http::verb::get || method == http::verb::head)) {
-            net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]{
+            net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
                 self->HandleApiGameState(std::move(req), std::move(send));
             });
             return;
         }
 
         if (target == "/api/v1/game/tick" && method == http::verb::post) {
-            net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]{
+            net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
                 self->HandleApiTick(std::move(req), std::move(send));
             });
             return;
