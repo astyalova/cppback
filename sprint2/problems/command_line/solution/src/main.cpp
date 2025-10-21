@@ -36,29 +36,29 @@ struct Args {
     Args args;
     desc.add_options()
         ("help,h", "produce help message")
-        ("tick-period, t", po::value(&argc.period_ticket)->value_name("milliseconds"), "set tick period")
-        ("config-file, c", po::value(&argc.path_to_file)->value_name("file"), "set config file path")
-        ("www-root, w", po::value(&argc.path_to_catalogue)->value_name("dir"), "set static files root")
+        ("tick-period, t", po::value(&args.period_ticket)->value_name("milliseconds"), "set tick period")
+        ("config-file, c", po::value(&args.path_to_file)->value_name("file"), "set config file path")
+        ("www-root, w", po::value(&args.path_to_catalogue)->value_name("dir"), "set static files root")
         ("randomize-spawn-points", "spawn dogs at random positions ");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
     po::notify(vm);
 
-    if (vm.contains("help"s)) {
+    if (vm.contains("help")) {
             std::cout << desc;
             return std::nullopt;
         }
-        if (!vm.contains("config-file"s)) {
-            throw std::runtime_error("Error: configuration file path is not specified"s);
+        if (!vm.contains("config-file")) {
+            throw std::runtime_error("Error: configuration file path is not specified");
         }
         if (!vm.contains("www-root"s)) {
-            throw std::runtime_error("Error: static files root directory is not specified"s);
+            throw std::runtime_error("Error: static files root directory is not specified");
         }
-        if (!vm.contains("tick-period"s)) {
+        if (!vm.contains("tick-period")) {
             args.period_ticket = -1;
         }
-        args.randomize_spawn_points = vm.contains("randomize-spawn-points"s);
+        args.spawn = vm.contains("randomize-spawn-points");
 
     return args;
 }
@@ -76,19 +76,14 @@ void RunWorkers(unsigned n, const Fn& fn) {
 }
 
 int main(int argc, const char* argv[]) {
-    if (argc != 3) {
-        std::cerr << "Usage: game_server <game-config-json> <static-data-dir>"sv << std::endl;
-        return EXIT_FAILURE;
-    }
-
     json_logger::InitLogger();
 
     try {
         if (auto args = ParseCommandLine(argc, argv)) {
-            std::filesystem::path config_file = args->path_to_file;
+            std::filesystem::path path_to_file = args->path_to_file;
             std::string www_root = args->path_to_catalogue;
 
-            Application app(json_parser::LoadGame(config_file),
+            Application app(json_loader::LoadGame(path_to_file),
                             args->spawn,
                             args->period_ticket >= 0);
 
@@ -103,7 +98,7 @@ int main(int argc, const char* argv[]) {
             auto api_strand = net::make_strand(ioc);
             auto handler = std::make_shared<http_handler::RequestHandler>(app, www_root, api_strand);
 
-            auto ticker = std::make_shared<http_handler::Ticker>(api_strand, std::chrono::milliseconds(args->tick_period),
+            auto ticker = std::make_shared<http_handler::Ticker>(api_strand, std::chrono::milliseconds(args->period_ticket),
                 [&app](std::chrono::milliseconds delta) { 
                     if (app.GetAutoTick()) {
                         app.Tick(delta);

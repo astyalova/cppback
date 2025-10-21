@@ -99,7 +99,7 @@ public:
     [[nodiscard]] boost::json::value GetGameState(const Players::Token& token) {
         auto player = players_.FindByToken(token);
         if (!player) {
-            throw AppErrorException("No player with such token"s, AppErrorException::Category::NoPlayerWithToken);
+            throw AppErrorException("No player with such token", AppErrorException::Category::NoPlayerWithToken);
         }
 
         boost::json::object players_by_id;
@@ -111,7 +111,7 @@ public:
             };
         }
 
-        return boost::json::object{{"players"sv, players_by_id}};
+        return boost::json::object{{"players", players_by_id}};
     }
 
     void ActionPlayer(const Players::Token& token, const std::string& direction_str) {
@@ -120,13 +120,13 @@ public:
             try {
                 dir = GetDirFromStr(direction_str);
             } catch (...) {
-                throw AppErrorException("Invalid direction"s, AppErrorException::Category::InvalidDirection);
+                throw AppErrorException("Invalid direction", AppErrorException::Category::InvalidDirection);
             }
         }
 
         auto player = players_.FindByToken(token);
         if (!player) {
-            throw AppErrorException("No player with such token"s, AppErrorException::Category::NoPlayerWithToken);
+            throw AppErrorException("No player with such token", AppErrorException::Category::NoPlayerWithToken);
         }
 
         if (dir) {
@@ -138,7 +138,7 @@ public:
 
     void Tick(std::chrono::milliseconds delta) {
         if (delta < static_cast<std::chrono::milliseconds>(0)) {
-            throw AppErrorException("Negative time delta"s, AppErrorException::Category::InvalidTime);
+            throw AppErrorException("Negative time delta", AppErrorException::Category::InvalidTime);
         }
         players_.MovePlayers(delta);
     }
