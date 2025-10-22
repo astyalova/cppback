@@ -298,6 +298,19 @@ private:
         return res;
     }
 
+    static http::response<http::string_body> MakeMethodNotAllowed(std::string_view message) {
+        boost::json::object body;
+        body["code"] = "invalidMethod";
+        body["message"] = message;
+
+        http::response<http::string_body> res(http::status::method_not_allowed, 11);
+        res.set(http::field::content_type, "application/json");
+        res.set(http::field::cache_control, "no-cache");
+        res.body() = boost::json::serialize(body);
+        res.prepare_payload();
+        return res;
+    }
+
     void HandleApiRequest(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
         const std::string target = std::string(req.target());
         const auto method = req.method();
@@ -330,11 +343,16 @@ private:
             return;
         }
 
-        if (target == "/api/v1/game/tick" && method == http::verb::post) {
-            net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
-                self->HandleApiTick(std::move(req), std::move(send));
-            });
-            return;
+        if (target == "/api/v1/game/tick") {
+            if (method == http::verb::post) {
+                net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
+                    self->HandleApiTick(std::move(req), std::move(send));
+                });
+                return;
+            } else {
+                send(MakeMethodNotAllowed("Only POST method is allowed for this endpoint"));
+                return;
+            }
         }
 
         send(MakeErrorResponse(http::status::bad_request, "invalidArgument", "Unknown API endpoint"));
