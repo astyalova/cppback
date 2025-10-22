@@ -13,7 +13,6 @@
 namespace json_loader {
 
 model::Game LoadGame(const std::filesystem::path& json_path) {
-    // Загрузить содержимое файла json_path, например, в виде строки
     std::ifstream file(json_path);
     if (!file.is_open()) {
         throw std::runtime_error("Failed to open file.");
@@ -25,7 +24,6 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
     buffer << file.rdbuf();
     std::string json_string = buffer.str();
 
-    // Распарсить строку как JSON, используя boost::json::parse
     try {
         boost::json::value jv = boost::json::parse(json_string);
         auto root_obj = jv.as_object();
