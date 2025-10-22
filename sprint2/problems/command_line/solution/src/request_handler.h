@@ -201,11 +201,6 @@ private:
     }
 
     void HandleApiTick(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
-        if (req.method() != http::verb::post) {
-            send(MakeMethodNotAllowed("Only POST method is allowed"));
-            return;
-        }
-
         boost::system::error_code ec;
         auto body = boost::json::parse(req.body(), ec);
         if (ec || !body.is_object()) {
@@ -253,15 +248,38 @@ private:
         return match_results[1].str();
     }
 
-    static http::response<http::string_body> MakeMethodNotAllowed(std::string_view message) {
-        boost::json::object body;
-        body["code"] = "invalidMethod";
-        body["message"] = message;
+    template <typename Body, typename Allocator>
+    http::response<http::string_body> HandleStatic(
+        const http::request<Body, http::basic_fields<Allocator>>& req
+    ) const {
+        auto rel_path = std::string(req.target());
+        if (rel_path.empty() || rel_path[0] != '/') rel_path.insert(rel_path.begin(), '/');
 
-        http::response<http::string_body> res(http::status::method_not_allowed, 11);
-        res.set(http::field::content_type, "application/json");
-        res.set(http::field::cache_control, "no-cache");
-        res.body() = boost::json::serialize(body);
+        fs::path requested = fs::weakly_canonical(data_path_ / rel_path.substr(1));
+        if (requested.string().find(data_path_.string()) != 0) {
+            http::response<http::string_body> res{http::status::bad_request, req.version()};
+            res.set(http::field::content_type, ContentType::TEXT_PLAIN);
+            res.body() = "Bad Request";
+            res.prepare_payload();
+            return res;
+        }
+
+        if (fs::is_directory(requested)) requested /= "index.html";
+        if (!fs::exists(requested) || !fs::is_regular_file(requested)) {
+            http::response<http::string_body> res{http::status::not_found, req.version()};
+            res.set(http::field::content_type, ContentType::TEXT_PLAIN);
+            res.body() = "Not Found";
+            res.prepare_payload();
+            return res;
+        }
+
+        std::ifstream file(requested, std::ios::binary);
+        std::ostringstream buffer;
+        buffer << file.rdbuf();
+
+        http::response<http::string_body> res{http::status::ok, req.version()};
+        res.set(http::field::content_type, ContentType::GetContentTypeByFileExtension(requested));
+        res.body() = buffer.str();
         res.prepare_payload();
         return res;
     }
@@ -280,8 +298,7 @@ private:
         return res;
     }
 
-    void HandleApiRequest(http::request<http::string_body>&& req,
-                          std::function<void(http::response<http::string_body>)> send) {
+    void HandleApiRequest(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
         const std::string target = std::string(req.target());
         const auto method = req.method();
 
@@ -306,21 +323,21 @@ private:
             return;
         }
 
-        if (target == "/api/v1/game/state" && (method == http::verb::get || method == http::verb::head)) {
+        if(target == "/api/v1/game/state" && (method == http::verb::get || method == http::verb::head)) {
             net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
                 self->HandleApiGameState(std::move(req), std::move(send));
             });
             return;
         }
 
-        if (target == "/api/v1/game/tick") {
+        if (target == "/api/v1/game/tick" && method == http::verb::post) {
             net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
                 self->HandleApiTick(std::move(req), std::move(send));
             });
             return;
         }
 
-        send(MakeErrorResponse(http::status::not_found, "invalidArgument", "Unknown API endpoint"));
+        send(MakeErrorResponse(http::status::bad_request, "invalidArgument", "Unknown API endpoint"));
     }
 };
 
@@ -334,19 +351,19 @@ public:
     void operator()(boost::beast::http::request<Body, boost::beast::http::basic_fields<Allocator>>&& req,
                     Send&& send) {
         LogRequest(req);
-        decorated_(std::move(req),
-            [this, &send, start = std::chrono::steady_clock::now()](auto&& response) mutable {
-                auto end = std::chrono::steady_clock::now();
-                auto response_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-                LogResponse(response, response_time);  
-                send(std::forward<decltype(response)>(response));
-            });
+    decorated_(std::move(req),
+        [this, &send, start = std::chrono::steady_clock::now()](auto&& response) mutable {
+            auto end = std::chrono::steady_clock::now();
+            auto response_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+            LogResponse(response, response_time);  
+            send(std::forward<decltype(response)>(response));
+        });
     }
 
 private:
     Handler& decorated_;
 
-    template <typename Body, typename Allocator>
+  template <typename Body, typename Allocator>
     void LogRequest(const boost::beast::http::request<Body, boost::beast::http::basic_fields<Allocator>>& req) {
         boost::json::object log_data;
         log_data["ip"] = "0.0.0.0";
