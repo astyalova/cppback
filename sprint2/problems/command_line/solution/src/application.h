@@ -11,9 +11,6 @@
 #include <string>
 #include <chrono>
 
-using namespace model;
-using namespace player;
-
 class AppErrorException : public std::invalid_argument {
 public:
     enum class Category {
@@ -36,7 +33,7 @@ private:
 
 class Application {
 public:
-    Application(Game&& game, bool spawn = false, bool auto_tick_enabled = false)
+    Application(model::Game&& game, bool spawn = false, bool auto_tick_enabled = false)
         : game_(std::move(game))
         , spawn_(spawn)
         , auto_tick_enabled_(auto_tick_enabled) {}
@@ -51,7 +48,7 @@ public:
     }
 
     [[nodiscard]] std::string GetMapInfo(const std::string& map_id) const {
-        auto map = game_.FindMap(Map::Id{map_id});
+        auto map = game_.FindMap(model::Map::Id{map_id});
         if (!map) {
             throw AppErrorException("Map not found", AppErrorException::Category::InvalidMapId);
         }
@@ -78,7 +75,7 @@ public:
             throw AppErrorException("Empty player name", AppErrorException::Category::EmptyPlayerName);
         }
 
-        auto map = game_.FindMap(Map::Id{map_id});
+        auto map = game_.FindMap(model::Map::Id{map_id});
         if (!map) {
             throw AppErrorException("Map not found", AppErrorException::Category::InvalidMapId);
         }
@@ -89,7 +86,7 @@ public:
         }
 
         auto dog = session->CreateDog(user_name, spawn_);
-        std::pair<Player*, std::string> player_info = players_.Add(dog, session);
+        std::pair<player::Player*, std::string> player_info = players_.Add(dog, session);
 
         return boost::json::object{
             {"authToken", player_info.second},
@@ -97,7 +94,7 @@ public:
         };
     }
 
-    [[nodiscard]] boost::json::value GetGameState(const Players::Token& token) {
+    [[nodiscard]] boost::json::value GetGameState(const player::Players::Token& token) {
         auto player = players_.FindByToken(token);
         if (!player) {
             throw AppErrorException("No player with such token", AppErrorException::Category::NoPlayerWithToken);
@@ -108,19 +105,19 @@ public:
             players_by_id[std::to_string(dog->GetToken())] = boost::json::object {
                 {"pos", boost::json::array{dog->GetCoord().x, dog->GetCoord().y}},
                 {"speed", boost::json::array{dog->GetSpeed().x, dog->GetSpeed().y}},
-                {"dir", GetDirAsStr(dog->GetDir())}
+                {"dir", player::GetDirAsStr(dog->GetDir())}
             };
         }
 
         return boost::json::object{{"players", players_by_id}};
     }
 
-    void ActionPlayer(const Players::Token& token, const std::string& direction_str) {
+    void ActionPlayer(const player::Players::Token& token, const std::string& direction_str) {
         std::optional<model::Direction> dir;
         if (!direction_str.empty()) {
             try {
-                dir = GetDirFromStr(direction_str);
-            } catch (...) {
+                dir = player::GetDirFromStr(direction_str);
+            } catch (const std::exception& e) {
                 throw AppErrorException("Invalid direction", AppErrorException::Category::InvalidDirection);
             }
         }
@@ -133,7 +130,7 @@ public:
         if (dir) {
             player->ChangeDir(*dir);
         } else {
-            player->SetSpeed(Dog::Speed{0.0, 0.0});
+            player->SetSpeed(model::Dog::Speed{0.0, 0.0});
         }
     }
 
@@ -145,8 +142,8 @@ public:
     }
 
 private:
-    Game game_;
-    Players players_;
+    model::Game game_;
+    player::Players players_;
     bool spawn_;
     bool auto_tick_enabled_;
 };

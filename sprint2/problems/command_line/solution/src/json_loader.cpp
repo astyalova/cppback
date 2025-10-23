@@ -48,10 +48,9 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
             game.AddMap(std::move(mp));
         }
 
-    } catch(...) {
-        throw;
+    } catch (const std::exception& e) {
+        throw std::runtime_error("JSON parsing error: " + std::string(e.what()));
     }
-
     return game;
 }
 

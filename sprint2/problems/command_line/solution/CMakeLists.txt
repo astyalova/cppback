@@ -34,7 +34,7 @@ add_executable(game_server
 	src/request_handler.cpp
 	src/request_handler.h
 	src/player.h
-	src/ticket.h
+	src/ticker.h
 	src/application.h
 )
 

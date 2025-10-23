@@ -2,6 +2,7 @@
 
 #include "model.h"
 
+#include <algorithm>
 #include <iomanip>
 #include <random>
 #include <sstream>
@@ -15,6 +16,8 @@ namespace player {
 
     class Player {
     public:
+        static constexpr double HALF_WIDTH = 0.4;
+
         Player(GameSession* game, Dog* dog) : game_(game), dog_(dog) {}
 
         std::uint64_t GetDogId() const {
@@ -72,10 +75,10 @@ namespace player {
             const auto& roads = game_->GetMap()->GetRoads();
             
             auto road_it = std::find_if(roads.begin(), roads.end(), [&next_pos](const model::Road& road){
-                model::Dog::Coordinate min_road_pos{std::min(road.GetStart().x, road.GetEnd().x) - 0.4, 
-                                        std::min(road.GetStart().y, road.GetEnd().y) - 0.4};
-                model::Dog::Coordinate max_road_pos{std::max(road.GetStart().x, road.GetEnd().x) + 0.4, 
-                                        std::max(road.GetStart().y, road.GetEnd().y) + 0.4};
+                model::Dog::Coordinate min_road_pos{std::min(road.GetStart().x, road.GetEnd().x) - HALF_WIDTH, 
+                                        std::min(road.GetStart().y, road.GetEnd().y) - HALF_WIDTH};
+                model::Dog::Coordinate max_road_pos{std::max(road.GetStart().x, road.GetEnd().x) + HALF_WIDTH, 
+                                        std::max(road.GetStart().y, road.GetEnd().y) + HALF_WIDTH};
                 return (next_pos.x >= min_road_pos.x && next_pos.x <= max_road_pos.x
                         && next_pos.y >= min_road_pos.y && next_pos.y <= max_road_pos.y);
             });
@@ -170,12 +173,13 @@ namespace player {
         }
 
         Player* FindByDogIdAndMapId(uint64_t dog_id, Map::Id map_id) {
-            for (auto& p : players_) {
-                if (p->GetDogId() == dog_id && p->GetSession()->GetMap()->GetId() == map_id) {
-                    return p.get();
-                }
-            }
-            return nullptr;
+            auto it = std::find_if(players_.begin(), players_.end(), 
+                [dog_id, map_id](const auto& player) {
+                    return player->GetDogId() == dog_id && 
+                        player->GetSession()->GetMap()->GetId() == map_id;
+                });
+            
+            return (it != players_.end()) ? it->get() : nullptr;
         }
 
         Player* FindByToken(const Token& token) {

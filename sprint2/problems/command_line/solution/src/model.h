@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -225,8 +226,11 @@ public:
             return 'L';
         } else if(GetDir() == Direction::SOUTH) {
             return 'D';
-        } 
-        return 'U';
+        } else if(GetDir() == Direction::NORTH) {
+            return 'U';
+        }
+        assert(false);
+        return 'U'; 
     }
 
     Direction GetDirFromChar() const noexcept {
@@ -236,7 +240,10 @@ public:
             return Direction::WEST;
         } else if(GetDirAsChar() == 'D') {
             return Direction::SOUTH;
+        } else if(GetDirAsChar() == 'U') {
+            return Direction::NORTH;
         } 
+        assert(false);
         return Direction::NORTH;
     }
 
@@ -291,8 +298,8 @@ public:
 
     Dog::Coordinate GenerateNewPosition(bool randomize_spawn_point = false) const noexcept {
         if (!randomize_spawn_point) {
-            return Dog::Coordinate {double(map_->GetRoads().at(0).GetStart().x), 
-                        double(map_->GetRoads().at(0).GetStart().y)};
+            return Dog::Coordinate {static_cast<double>(map_->GetRoads().at(0).GetStart().x), 
+                        static_cast<double>(map_->GetRoads().at(0).GetStart().y)};
         }
 
         std::random_device rand_device; 
@@ -308,11 +315,11 @@ public:
         if (std::abs(r_start.x - r_end.x) > std::abs(r_start.y - r_end.y)) {
             std::uniform_real_distribution<double> unif_d(std::min(r_start.x, r_end.x), std::max(r_start.x, r_end.x));
             pos.x = unif_d(rand_engine);
-            pos.y = (((pos.x - double(r_start.x)) * double(r_end.y - r_start.y)) / double(r_end.x - r_start.x)) + double(r_start.y);
+            pos.y = (((pos.x - static_cast<double>(r_start.x)) * static_cast<double>(r_end.y - r_start.y)) / static_cast<double>(r_end.x - r_start.x)) + static_cast<double>(r_start.y);
         } else {
             std::uniform_real_distribution<double> unif_d(std::min(r_start.y, r_end.y), std::max(r_start.y, r_end.y));
             pos.y = unif_d(rand_engine);
-            pos.x = (((pos.y - double(r_start.y)) * double(r_end.x - r_start.x)) / double(r_end.y - r_start.y)) + double(r_start.x);
+            pos.x = (((pos.y - static_cast<double>(r_start.y)) * static_cast<double>(r_end.x - r_start.x)) / static_cast<double>(r_end.y - r_start.y)) + static_cast<double>(r_start.x);
         }
         return pos;
     }
