@@ -1,1 +1,1 @@
-{"slowest_func_v0": "func_for_v0", "slowest_func_v1": "func_for_v1", "slowest_func_v2": "func_for_v2"}
+{"slowest_func_v0": "addAnnotatedEdge", "slowest_func_v1": "getNode", "slowest_func_v2": "newEdge"}
