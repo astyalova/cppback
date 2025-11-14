@@ -59,20 +59,29 @@ make_shots()
 
 perf_cmd.wait()
 
+print("Starting perf recording...")
+perf_cmd = subprocess.Popen(
+    ['sudo', 'perf', 'record', '-g', '-p', str(server.pid), '-o', 'perf.data']
+)
+time.sleep(1)
+
+make_shots()
+
+perf_cmd.terminate()
+perf_cmd.wait()
 print("Perf recording finished")
 
 if os.path.exists('perf.data'):
-    subprocess.run('perf script | ./FlameGraph/stackcollapse-perf.pl | ./FlameGraph/flamegraph.pl > graph.svg', shell=True)
-    
-    if os.path.exists('graph.svg'):
-        svg_size = os.path.getsize('graph.svg')
-        print(f"graph.svg size: {svg_size} bytes")
+    subprocess.run(
+        './FlameGraph/stackcollapse-perf.pl perf.data | ./FlameGraph/flamegraph.pl > graph.svg',
+        shell=True,
+        check=True
+    )
+
+    if os.path.exists('graph.svg') and os.path.getsize('graph.svg') > 0:
         print("Flamegraph created successfully!")
     else:
         print("Failed to create flamegraph")
-        
 else:
     print("perf.data file not found!")
 
-stop(server)
-print('Job done')
