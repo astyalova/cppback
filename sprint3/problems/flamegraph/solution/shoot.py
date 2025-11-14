@@ -15,8 +15,11 @@ AMMUNITION = [
     'localhost:8080/api/v1/maps'
 ]
 
-SHOOT_COUNT = 1000
-COOLDOWN = 0.01
+SHOOT_COUNT = 100
+COOLDOWN = 0.1
+
+PERF_DATA_FILE = 'perf.data'
+GRAPH_FILE = 'graph.svg'
 
 
 def start_server():
@@ -33,55 +36,57 @@ def run(command, output=None):
 def stop(process, wait=False):
     if process.poll() is None and wait:
         process.wait()
-    process.terminate()
+    else:
+        process.terminate()
 
 
 def shoot(ammo):
-    result = subprocess.run(f'curl -s -o /dev/null -w "%{{http_code}}" {ammo}', 
-                          shell=True, capture_output=True, text=True)
+    hit = run('curl ' + ammo, output=subprocess.DEVNULL)
     time.sleep(COOLDOWN)
+    stop(hit, wait=True)
 
 
 def make_shots():
-    for i in range(SHOOT_COUNT):
+    for _ in range(SHOOT_COUNT):
         ammo_number = random.randrange(RANDOM_LIMIT) % len(AMMUNITION)
         shoot(AMMUNITION[ammo_number])
     print('Shooting complete')
 
-print("Starting server...")
-server = run(start_server())
-time.sleep(2)
 
-perf_cmd = run(f'timeout 30s sudo perf record -g -p {server.pid} -o perf.data') 
-time.sleep(1)
-
-make_shots()
-
-perf_cmd.wait()
-
-print("Starting perf recording...")
-perf_cmd = subprocess.Popen(
-    ['sudo', 'perf', 'record', '-g', '-p', str(server.pid), '-o', 'perf.data']
-)
-time.sleep(1)
-
-make_shots()
-
-perf_cmd.terminate()
-perf_cmd.wait()
-print("Perf recording finished")
-
-if os.path.exists('perf.data'):
-    subprocess.run(
-        './FlameGraph/stackcollapse-perf.pl perf.data | ./FlameGraph/flamegraph.pl > graph.svg',
-        shell=True,
-        check=True
+def run_perf_record(pid):
+    return subprocess.Popen(
+        ['perf', 'record', '-F', '99', '-g', '-o', PERF_DATA_FILE, '-p', str(pid)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
     )
 
-    if os.path.exists('graph.svg') and os.path.getsize('graph.svg') > 0:
-        print("Flamegraph created successfully!")
-    else:
-        print("Failed to create flamegraph")
-else:
-    print("perf.data file not found!")
+
+def build_flamegraph():
+    perf_script = subprocess.Popen(['perf', 'script', '-i', PERF_DATA_FILE], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+
+    stackcollapse = subprocess.Popen(['./FlameGraph/stackcollapse-perf.pl'], stdin=perf_script.stdout, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+
+    with open(GRAPH_FILE, 'w') as svg: subprocess.run(['./FlameGraph/flamegraph.pl'], stdin=stackcollapse.stdout, stdout=svg, check=True)
+
+
+
+    server_cmd = start_server()
+    server_proc = run(server_cmd)
+
+    time.sleep(1) 
+
+    server_pid = server_proc.pid
+
+    perf_proc = run_perf_record(server_pid)
+
+    make_shots()
+
+    perf_proc.send_signal(signal.SIGINT)
+    perf_proc.wait()
+
+    stop(server_proc)
+    time.sleep(1)
+
+    build_flamegraph()
+    print('Job done')
 
