@@ -15,15 +15,14 @@ AMMUNITION = [
     'localhost:8080/api/v1/maps'
 ]
 
-SHOOT_COUNT = 100
-COOLDOWN = 0.1
+SHOOT_COUNT = 1000
+COOLDOWN = 0.01
 
 
 def start_server():
     parser = argparse.ArgumentParser()
     parser.add_argument('server', type=str)
-    parser.add_argument('config', type=str)
-    return parser.parse_args()
+    return parser.parse_args().server
 
 
 def run(command, output=None):
@@ -38,33 +37,42 @@ def stop(process, wait=False):
 
 
 def shoot(ammo):
-    hit = run('curl ' + ammo, output=subprocess.DEVNULL)
+    result = subprocess.run(f'curl -s -o /dev/null -w "%{{http_code}}" {ammo}', 
+                          shell=True, capture_output=True, text=True)
     time.sleep(COOLDOWN)
-    stop(hit, wait=True)
 
 
 def make_shots():
-    for _ in range(SHOOT_COUNT):
+    for i in range(SHOOT_COUNT):
         ammo_number = random.randrange(RANDOM_LIMIT) % len(AMMUNITION)
         shoot(AMMUNITION[ammo_number])
     print('Shooting complete')
 
-args = start_server()
-server_cmd = f"{args.server} {args.config}"
-server = run(server_cmd)
+print("Starting server...")
+server = run(start_server())
+time.sleep(2)
 
-cmd = f"perf record -o perf.data --pid {server.pid}"
-perf = run(cmd)
+perf_cmd = run(f'timeout 30s sudo perf record -g -p {server.pid} -o perf.data') 
 time.sleep(1)
 
 make_shots()
 
-os.kill(perf.pid, signal.SIGINT)
-perf.wait()
+perf_cmd.wait()
 
-flame_cmd= ("perf script | ./FlameGraph/stackcollapse-perf.pl | ./FlameGraph/flamegraph.pl > graph.svg")
-run(flame_cmd, shell=True)
+print("Perf recording finished")
+
+if os.path.exists('perf.data'):
+    subprocess.run('perf script | ./FlameGraph/stackcollapse-perf.pl | ./FlameGraph/flamegraph.pl > graph.svg', shell=True)
+    
+    if os.path.exists('graph.svg'):
+        svg_size = os.path.getsize('graph.svg')
+        print(f"graph.svg size: {svg_size} bytes")
+        print("Flamegraph created successfully!")
+    else:
+        print("Failed to create flamegraph")
+        
+else:
+    print("perf.data file not found!")
 
 stop(server)
-
 print('Job done')
