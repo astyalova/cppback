@@ -69,7 +69,7 @@ def build_flamegraph():
     with open(GRAPH_FILE, 'w') as svg: subprocess.run(['./FlameGraph/flamegraph.pl'], stdin=stackcollapse.stdout, stdout=svg, check=True)
 
 
-
+def main():
     server_cmd = start_server()
     server_proc = run(server_cmd)
 
@@ -90,3 +90,5 @@ def build_flamegraph():
     build_flamegraph()
     print('Job done')
 
+if __name__ == '__main__':
+    main()
