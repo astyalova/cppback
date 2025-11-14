@@ -62,11 +62,21 @@ def run_perf_record(pid):
 
 
 def build_flamegraph():
-    perf_script = subprocess.Popen(['perf', 'script', '-i', PERF_DATA_FILE], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    perf_script = subprocess.Popen(['perf', 'script', '-i', PERF_DATA_FILE],
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.DEVNULL)
 
-    stackcollapse = subprocess.Popen(['./FlameGraph/stackcollapse-perf.pl'], stdin=perf_script.stdout, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    stackcollapse = subprocess.Popen(['./FlameGraph/stackcollapse-perf.pl'],
+                                     stdin=perf_script.stdout,
+                                     stdout=subprocess.PIPE,
+                                     stderr=subprocess.DEVNULL)
 
-    with open(GRAPH_FILE, 'w') as svg: subprocess.run(['./FlameGraph/flamegraph.pl'], stdin=stackcollapse.stdout, stdout=svg, check=True)
+    with open(GRAPH_FILE, 'w') as svg:
+        subprocess.run(['./FlameGraph/flamegraph.pl'],
+                       stdin=stackcollapse.stdout,
+                       stdout=svg,
+                       check=True)
+
 
 
 def main():
@@ -76,6 +86,7 @@ def main():
     time.sleep(1) 
 
     server_pid = server_proc.pid
+    print(f"Server started with PID {server_pid}")
 
     perf_proc = run_perf_record(server_pid)
 
@@ -83,12 +94,14 @@ def main():
 
     perf_proc.send_signal(signal.SIGINT)
     perf_proc.wait()
+    print('perf record finished')
 
     stop(server_proc)
     time.sleep(1)
 
     build_flamegraph()
     print('Job done')
+
 
 if __name__ == '__main__':
     main()
