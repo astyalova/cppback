@@ -3,6 +3,8 @@ import subprocess
 import time
 import random
 import shlex
+import os
+import signal
 
 RANDOM_LIMIT = 1000
 SEED = 123456789
@@ -20,7 +22,8 @@ COOLDOWN = 0.1
 def start_server():
     parser = argparse.ArgumentParser()
     parser.add_argument('server', type=str)
-    return parser.parse_args().server
+    parser.add_argument('config', type=str)
+    return parser.parse_args()
 
 
 def run(command, output=None):
@@ -46,9 +49,22 @@ def make_shots():
         shoot(AMMUNITION[ammo_number])
     print('Shooting complete')
 
+args = start_server()
+server_cmd = f"{args.server} {args.config}"
+server = run(server_cmd)
 
-server = run(start_server())
-make_shots()
-stop(server)
+cmd = f"perf record -o perf.data --pid {server.pid}"
+perf = run(cmd)
 time.sleep(1)
+
+make_shots()
+
+os.kill(perf.pid, signal.SIGINT)
+perf.wait()
+
+flame_cmd= ("perf script | ./FlameGraph/stackcollapse-perf.pl | ./FlameGraph/flamegraph.pl > graph.svg")
+run(flame_cmd, shell=True)
+
+stop(server)
+
 print('Job done')
