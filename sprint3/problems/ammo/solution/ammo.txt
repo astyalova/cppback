@@ -3,3 +3,5 @@
 [Cookie: None]
 /api/v1/maps 
 /api/v1/maps/map1
+/api/v1/game/join
+/api/v1/game/tick
