@@ -110,11 +110,14 @@ public:
         }
 
         boost::json::object lost_objects_json;
-        auto lost_objects = player->GetSession()->GetLostObjects();
-        for (const auto& [id, obj] : lost_objects) {
-            lost_objects_json[std::to_string(id)] = {{"type", obj.type}};
+        auto session = player->GetSession();
+        if (session) {
+            auto lost_objects = session->GetLostObjects();
+            for (const auto& [id, obj] : lost_objects) {
+                boost::json::array pos{ static_cast<double>(obj.pos.x), static_cast<double>(obj.pos.y) };
+                lost_objects_json[std::to_string(id)] = {{"type", obj.type}, {"pos", pos}};
+            }
         }
-
         return boost::json::object{{"players", players_by_id}, {"lostObjects", lost_objects_json}};
     }
 
