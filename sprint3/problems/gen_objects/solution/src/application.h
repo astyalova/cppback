@@ -59,9 +59,13 @@ public:
         map_json["buildings"] = json_serializer::SerializeBuildings(map->GetBuildings());
         map_json["roads"] = json_serializer::SerializeRoads(map->GetRoads());
         map_json["offices"] = json_serializer::SerializeOffices(map->GetOffices());
-        map_json["lootTypes"] = json_serializer::SerializeLootTypes(map->GetLootTypes());
 
-        // lostObjects для тестов
+        boost::json::array loot_types_json;
+        for (int i = 0; i < map->GetLootTypeCount(); ++i) {
+            loot_types_json.push_back(boost::json::object{{"type", i}});
+        }
+        map_json["lootTypes"] = loot_types_json;
+
         boost::json::array lost_objects_json;
         for (int i = 0; i < map->GetLootTypeCount(); ++i) {
             lost_objects_json.push_back(boost::json::object{{"type", i}});
