@@ -263,15 +263,12 @@ private:
             auto map_obj = map_json.as_object();
 
             boost::json::array lost_objects_array;
-
             auto map_lost_info = app_.GetMapLostObjectsInfo(map_id);
-            if (map_lost_info.loot_type_count > 0) {
-                boost::json::array lost_objects_array;
-                for (int i = 0; i < map_lost_info.loot_type_count; ++i) {
-                    lost_objects_array.push_back(boost::json::object{{"type", i}});
-                }
-                map_obj["lostObjects"] = lost_objects_array;
+
+            for (int i = 0; i < map_lost_info.loot_type_count; ++i) {
+                lost_objects_array.push_back(boost::json::object{{"type", i}});
             }
+            map_obj["lostObjects"] = lost_objects_array;
 
             http::response<http::string_body> res(http::status::ok, req.version());
             res.set(http::field::server, "MyGameServer");
@@ -283,7 +280,7 @@ private:
             res.prepare_payload();
             send(std::move(res));
         } catch (const AppErrorException& e) {
-            send(MakeErrorResponse(http::status::not_found, "notFound", e.what()));
+            send(MakeErrorResponse(http::status::not_found, "mapNotFound", e.what()));
         }
     }
 
@@ -397,7 +394,11 @@ private:
             return;
         }
 
-        if(target == "/api/v1/game/state" && (method == http::verb::get || method == http::verb::head)) {
+        if(target == "/api/v1/game/state") {
+            if (method != http::verb::get && method != http::verb::head) {
+                send(MakeMethodNotAllowed("Only GET/HEAD methods are allowed for this endpoint", "GET, HEAD"));
+                return;
+            }
             net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
                 self->HandleApiGameState(std::move(req), std::move(send));
             });
