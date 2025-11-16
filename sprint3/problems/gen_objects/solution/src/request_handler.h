@@ -264,6 +264,7 @@ private:
 
             boost::json::array lost_objects_array;
 
+            auto map_lost_info = app_.GetMapLostObjectsInfo(map_id);
             if (map_lost_info.loot_type_count > 0) {
                 boost::json::array lost_objects_array;
                 for (int i = 0; i < map_lost_info.loot_type_count; ++i) {
