@@ -52,7 +52,23 @@ public:
         if (!map) {
             throw AppErrorException("Map not found", AppErrorException::Category::InvalidMapId);
         }
-        return json_serializer::SerializeMap(*map);
+
+        boost::json::object map_json;
+        map_json["id"] = map->GetId();
+        map_json["name"] = map->GetName();
+        map_json["buildings"] = json_serializer::SerializeBuildings(map->GetBuildings());
+        map_json["roads"] = json_serializer::SerializeRoads(map->GetRoads());
+        map_json["offices"] = json_serializer::SerializeOffices(map->GetOffices());
+        map_json["lootTypes"] = json_serializer::SerializeLootTypes(map->GetLootTypes());
+
+        // lostObjects для тестов
+        boost::json::array lost_objects_json;
+        for (int i = 0; i < map->GetLootTypeCount(); ++i) {
+            lost_objects_json.push_back(boost::json::object{{"type", i}});
+        }
+        map_json["lostObjects"] = lost_objects_json;
+
+        return boost::json::serialize(map_json);
     }
 
     [[nodiscard]] boost::json::value GetPlayers(const std::string& token) {
@@ -109,13 +125,14 @@ public:
             };
         }
 
-        boost::json::object lost_objects_json;
+        boost::json::array lost_objects_json;
         auto session = player->GetSession();
         if (session) {
             auto lost_objects = session->GetLostObjects();
             for (const auto& [id, obj] : lost_objects) {
-                boost::json::array pos{ static_cast<double>(obj.pos.x), static_cast<double>(obj.pos.y) };
-                lost_objects_json[std::to_string(id)] = {{"type", obj.type}, {"pos", pos}};
+                lost_objects_json.push_back(boost::json::object{
+                    {"type", obj.type}
+                });
             }
         }
         return boost::json::object{{"players", players_by_id}, {"lostObjects", lost_objects_json}};
