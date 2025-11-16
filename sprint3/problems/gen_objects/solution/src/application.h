@@ -109,7 +109,13 @@ public:
             };
         }
 
-        return boost::json::object{{"players", players_by_id}};
+        boost::json::object lost_objects_json;
+        auto lost_objects = player->GetSession()->GetLostObjects();
+        for (const auto& [id, obj] : lost_objects) {
+            lost_objects_json[std::to_string(id)] = {{"type", obj.type}};
+        }
+
+        return boost::json::object{{"players", players_by_id}, {"lostObjects", lost_objects_json}};
     }
 
     void ActionPlayer(const player::Players::Token& token, const std::string& direction_str) {
