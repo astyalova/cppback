@@ -68,11 +68,11 @@ public:
         map_json["lootTypes"] = boost::json::array{};
     }
 
-    boost::json::array lost_objects_array;
-    for (int i = 0; i < map->GetLootTypeCount(); ++i) {
-        lost_objects_array.push_back(boost::json::object{{"type", i}});
-    }
-    map_json["lostObjects"] = std::move(lost_objects_array);
+    // boost::json::array lost_objects_array;
+    // for (int i = 0; i < map->GetLootTypeCount(); ++i) {
+    //     lost_objects_array.push_back(boost::json::object{{"type", i}});
+    // }
+    // map_json["lostObjects"] = std::move(lost_objects_array);
 
     return boost::json::serialize(map_json);
 }
@@ -137,15 +137,15 @@ public:
             }
         }
 
-        boost::json::object lost_objects_json;
+        boost::json::array lost_objects_json;
         if (auto session = player->GetSession()) {
             auto lost_objects = session->GetLostObjects();
             for (const auto& [id, obj] : lost_objects) {
-                boost::json::array pos{ static_cast<double>(obj.pos.x), static_cast<double>(obj.pos.y) };
-                lost_objects_json[std::to_string(id)] = boost::json::object{
-                    {"type", obj.type},
-                    {"pos", pos}
-                };
+            lost_objects_json.push_back(boost::json::object{
+                {"id", id},
+                {"type", obj.type},
+                {"pos", boost::json::array{obj.pos.x, obj.pos.y }}
+            });
             }
         }
 
@@ -183,6 +183,10 @@ public:
             throw AppErrorException("Negative time delta", AppErrorException::Category::InvalidTime);
         }
         players_.MovePlayers(delta);
+
+        for (auto& session : game_.GetSessions()) {
+            session->AddRandomLoot(delta);
+        }
     }
 
     [[nodiscard]] std::unordered_map<int, model::GameSession::Loot> GetLostObjects(const player::Players::Token& token) {

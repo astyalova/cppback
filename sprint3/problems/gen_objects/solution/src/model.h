@@ -483,6 +483,15 @@ public:
         return speed_;
     }
 
+    std::vector<GameSession*> GetSessions() const {
+        std::vector<GameSession*> result;
+        result.reserve(sessions_.size());
+        for (const auto& s : sessions_) {
+            result.push_back(s.get());
+        }
+        return result;
+    }
+
 private:
     using MapIdHasher = util::TaggedHasher<Map::Id>;
     using MapIdToIndex = std::unordered_map<Map::Id, size_t, MapIdHasher>;
