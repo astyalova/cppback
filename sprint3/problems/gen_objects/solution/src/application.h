@@ -55,7 +55,7 @@ public:
 
         boost::json::object map_json;
 
-        map_json["id"] = map->GetId().Get();
+        map_json["id"] = *map->GetId();
         map_json["name"] = map->GetName();
 
         json_serializer::SerializeBuildings(*map, map_json);
