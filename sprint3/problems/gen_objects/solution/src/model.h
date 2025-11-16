@@ -6,6 +6,7 @@
 #include <vector>
 #include <random>
 #include <memory>
+#include <optional>
 
 #include "loot_generator.h"
 #include "tagged.h"
@@ -200,7 +201,10 @@ public:
     }
 
     const loot_gen::LootGenerator& GetLootGenerator() const {
-        return generator_;
+        if(!generator_) {
+            throw std::runtime_error("LootGenerator is not set");
+        }
+        return *generator_;
     }
 
 private:
@@ -213,7 +217,7 @@ private:
     OfficeIdToIndex warehouse_id_to_index_;
     Offices offices_;
     double speed_;
-    loot_gen::LootGenerator generator_;
+    std::optional<loot_gen::LootGenerator> generator_;
     int loot_count_ = 0;
 };
 
