@@ -40,6 +40,14 @@ add_executable(game_server
     src/loot_generator.cpp
 	src/extra_data.cpp
 	src/extra_data.h
+)
+
+add_executable(game_server_tests
+    src/model.h
+    src/model.cpp
+    src/loot_generator.h
+    src/loot_generator.cpp
+    src/tagged.h
     tests/model-tests.cpp
     tests/loot_generator_tests.cpp
 )
