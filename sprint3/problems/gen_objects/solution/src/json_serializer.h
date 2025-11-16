@@ -13,5 +13,5 @@ std::string SerializeMap(const model::Map& map);
 void SerializeRoads(const model::Map& map, boost::json::object& obj);
 void SerializeBuildings(const model::Map& map, boost::json::object& obj);
 void SerializeOffices(const model::Map& map, boost::json::object& obj);
-void SerializeLoots(const model::GameSession& session, boost::json::object& obj);
+void SerializeLootTypes(const model::Map& map, boost::json::object& obj);
 }  // namespace json_serializer
