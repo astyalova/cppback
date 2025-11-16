@@ -54,11 +54,13 @@ public:
         }
 
         boost::json::object map_json;
-        map_json["id"] = map->GetId();
+
+        map_json["id"] = map->GetId().Get();
         map_json["name"] = map->GetName();
-        map_json["buildings"] = json_serializer::SerializeBuildings(map->GetBuildings());
-        map_json["roads"] = json_serializer::SerializeRoads(map->GetRoads());
-        map_json["offices"] = json_serializer::SerializeOffices(map->GetOffices());
+
+        json_serializer::SerializeBuildings(*map, map_json);
+        json_serializer::SerializeRoads(*map, map_json);
+        json_serializer::SerializeOffices(*map, map_json);
 
         boost::json::array loot_types_json;
         for (int i = 0; i < map->GetLootTypeCount(); ++i) {
@@ -66,14 +68,9 @@ public:
         }
         map_json["lootTypes"] = loot_types_json;
 
-        boost::json::array lost_objects_json;
-        for (int i = 0; i < map->GetLootTypeCount(); ++i) {
-            lost_objects_json.push_back(boost::json::object{{"type", i}});
-        }
-        map_json["lostObjects"] = lost_objects_json;
-
         return boost::json::serialize(map_json);
     }
+
 
     [[nodiscard]] boost::json::value GetPlayers(const std::string& token) {
         auto player = players_.FindByToken(token);
