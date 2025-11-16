@@ -262,14 +262,6 @@ private:
             boost::json::value map_json = boost::json::parse(map_json_str);
             auto map_obj = map_json.as_object();
 
-            boost::json::array lost_objects_array;
-            auto map_lost_info = app_.GetMapLostObjectsInfo(map_id);
-
-            for (int i = 0; i < map_lost_info.loot_type_count; ++i) {
-                lost_objects_array.push_back(boost::json::object{{"type", i}});
-            }
-            map_obj["lostObjects"] = lost_objects_array;
-
             http::response<http::string_body> res(http::status::ok, req.version());
             res.set(http::field::server, "MyGameServer");
             res.set(http::field::content_type, "application/json");
