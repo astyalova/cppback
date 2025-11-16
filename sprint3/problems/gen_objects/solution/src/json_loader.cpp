@@ -44,7 +44,7 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
             LoadRoads(mp, obj);
             LoadBuildings(mp, obj);
             LoadOffices(mp, obj);
-            LoadLoot(mp, obj);
+            LoadLoot(mp, obj, root_obj);
             game.AddMap(std::move(mp));
         }
 
@@ -134,6 +134,5 @@ void LoadLoot(model::Map& map, const boost::json::value& map_val, const boost::j
     LoadLootGenerator(map, root);
     LoadLootTypes(map, map_obj);
 }
-
 
 }  // namespace json_loader
