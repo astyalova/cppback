@@ -5,6 +5,7 @@
 #include "json_serializer.h"
 #include "model.h"
 #include "player.h"
+#include "extra_data.h"
 
 #include <boost/json.hpp>
 #include <stdexcept>
@@ -47,29 +48,35 @@ public:
         return json_serializer::SerializeMaps(game_.GetMaps());
     }
 
-    [[nodiscard]] std::string GetMapInfo(const std::string& map_id) const {
-        auto map = game_.FindMap(model::Map::Id{map_id});
-        if (!map) {
-            throw AppErrorException("Map not found", AppErrorException::Category::InvalidMapId);
-        }
-
-        boost::json::object map_json;
-
-        map_json["id"] = *map->GetId();
-        map_json["name"] = map->GetName();
-
-        json_serializer::SerializeBuildings(*map, map_json);
-        json_serializer::SerializeRoads(*map, map_json);
-        json_serializer::SerializeOffices(*map, map_json);
-
-        boost::json::array loot_types_json;
-        for (int i = 0; i < map->GetLootTypeCount(); ++i) {
-            loot_types_json.push_back(boost::json::object{{"type", i}});
-        }
-        map_json["lootTypes"] = loot_types_json;
-
-        return boost::json::serialize(map_json);
+[[nodiscard]] std::string GetMapInfo(const std::string& map_id) const {
+    auto map = game_.FindMap(model::Map::Id{map_id});
+    if (!map) {
+        throw AppErrorException("Map not found", AppErrorException::Category::InvalidMapId);
     }
+
+    boost::json::object map_json;
+    map_json["id"] = *map->GetId();
+    map_json["name"] = map->GetName();
+
+    json_serializer::SerializeBuildings(*map, map_json);
+    json_serializer::SerializeRoads(*map, map_json);
+    json_serializer::SerializeOffices(*map, map_json);
+
+    if (const auto *loot_types_ptr = extra_data::ExtraDataRepository::GetInstance().GetLootTypes(map->GetId())) {
+        map_json["lootTypes"] = *loot_types_ptr;
+    } else {
+        map_json["lootTypes"] = boost::json::array{};
+    }
+
+    boost::json::array lost_objects_array;
+    for (int i = 0; i < map->GetLootTypeCount(); ++i) {
+        lost_objects_array.push_back(boost::json::object{{"type", i}});
+    }
+    map_json["lostObjects"] = std::move(lost_objects_array);
+
+    return boost::json::serialize(map_json);
+}
+
 
 
     [[nodiscard]] boost::json::value GetPlayers(const std::string& token) {
@@ -118,26 +125,36 @@ public:
         }
 
         boost::json::object players_by_id;
-        for (const auto& dog : player->GetSession()->GetDogs()) {
-            players_by_id[std::to_string(dog->GetToken())] = boost::json::object {
-                {"pos", boost::json::array{dog->GetCoord().x, dog->GetCoord().y}},
-                {"speed", boost::json::array{dog->GetSpeed().x, dog->GetSpeed().y}},
-                {"dir", player::GetDirAsStr(dog->GetDir())}
-            };
-        }
-
-        boost::json::array lost_objects_json;
-        auto session = player->GetSession();
-        if (session) {
-            auto lost_objects = session->GetLostObjects();
-            for (const auto& [id, obj] : lost_objects) {
-                lost_objects_json.push_back(boost::json::object{
-                    {"type", obj.type}
-                });
+        if (auto session = player->GetSession()) {
+            for (const auto& dog : session->GetDogs()) {
+                players_by_id[std::to_string(dog->GetToken())] = boost::json::object {
+                    {"pos", boost::json::array{ static_cast<double>(dog->GetCoord().x),
+                                            static_cast<double>(dog->GetCoord().y) }},
+                    {"speed", boost::json::array{ static_cast<double>(dog->GetSpeed().x),
+                                                static_cast<double>(dog->GetSpeed().y) }},
+                    {"dir", player::GetDirAsStr(dog->GetDir())}
+                };
             }
         }
-        return boost::json::object{{"players", players_by_id}, {"lostObjects", lost_objects_json}};
+
+        boost::json::object lost_objects_json;
+        if (auto session = player->GetSession()) {
+            auto lost_objects = session->GetLostObjects();
+            for (const auto& [id, obj] : lost_objects) {
+                boost::json::array pos{ static_cast<double>(obj.pos.x), static_cast<double>(obj.pos.y) };
+                lost_objects_json[std::to_string(id)] = boost::json::object{
+                    {"type", obj.type},
+                    {"pos", pos}
+                };
+            }
+        }
+
+        return boost::json::object{
+            {"players", std::move(players_by_id)},
+            {"lostObjects", std::move(lost_objects_json)}
+        };
     }
+
 
     void ActionPlayer(const player::Players::Token& token, const std::string& direction_str) {
         std::optional<model::Direction> dir;
