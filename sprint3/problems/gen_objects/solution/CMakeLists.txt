@@ -41,7 +41,7 @@ add_executable(game_server
 	src/extra_data.cpp
 	src/extra_data.h
     #tests/model-tests.cpp
-    tests/loot_generator_tests.cpp
+    #tests/loot_generator_tests.cpp
 )
 
 #target_include_directories(game_server_tests PRIVATE  CONAN_PKG::boost)
