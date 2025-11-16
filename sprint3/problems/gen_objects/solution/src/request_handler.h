@@ -357,14 +357,16 @@ private:
         return res;
     }
 
-    static http::response<http::string_body> MakeMethodNotAllowed(std::string_view message) {
+    static http::response<http::string_body> MakeMethodNotAllowed(std::string_view message, std::string_view allow = "GET, HEAD") {
         boost::json::object body;
         body["code"] = "invalidMethod";
         body["message"] = message;
+        
 
         http::response<http::string_body> res(http::status::method_not_allowed, 11);
         res.set(http::field::content_type, "application/json");
         res.set(http::field::cache_control, "no-cache");
+        res.set(http::field::allow, allow);
         res.body() = boost::json::serialize(body);
         res.prepare_payload();
         return res;
@@ -416,7 +418,7 @@ private:
 
         if (std::regex_match(target, std::regex(R"(^/api/v1/maps/[^/]+$)"))) {
             if (method != http::verb::get && method != http::verb::head) {
-                send(MakeMethodNotAllowed("Only GET/HEAD methods are allowed for this endpoint"));
+                send(MakeMethodNotAllowed("Only GET/HEAD methods are allowed for this endpoint", "GET, HEAD"));
                 return;
             }
             net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
