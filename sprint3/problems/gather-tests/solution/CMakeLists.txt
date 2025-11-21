@@ -12,6 +12,7 @@ find_package(Threads REQUIRED)
 add_library(collision_detection_lib STATIC
 	src/collision_detector.h
 	src/collision_detector.cpp
+	src/geom.h
 )
 
 target_link_libraries(collision_detection_lib PUBLIC CONAN_PKG::boost Threads::Threads)
