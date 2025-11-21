@@ -35,7 +35,7 @@ std::vector<GatheringEvent> FindGatherEvents(const ItemGathererProvider& provide
             auto collect = TryCollectPoint(gatherer.start_pos, gatherer.end_pos, item.position);
 
             if(collect.IsCollected(item.width + gatherer.width)) {
-                res.push_back({i, j, collect.sq_distance, collect.proj_ratio});
+                res.push_back({j, i, collect.sq_distance, collect.proj_ratio});
             }
         }
     }
