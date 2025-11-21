@@ -14,35 +14,35 @@ class ItemGatherer : public ItemGathererProvider {
 public:
     virtual ~ItemGatherer() = default;
 
-    size_t ItemsCount() {
+    size_t ItemsCount()  const override {
         return items_.size();
     }
 
-    Item GetItem(size_t idx) {
+    Item GetItem(size_t idx)  const override {
         return items_[idx];
     }
 
-    size_t GatherersCount() {
+    size_t GatherersCount()  const override {
         return gatherers_.size();
     }
 
-    Gatherer GetGatherer(size_t idx) {
+    Gatherer GetGatherer(size_t idx) const override {
         return gatherers_[idx];
     }
 
     void AddItem(const Item& item) {
-        items_.push_back(std::move(item));
+        items_.push_back(item);
     }
 
     void AddGatherer(const Gatherer& gatherer) {
-        gatherers_.push_back(std::move(gatherer));
+        gatherers_.push_back(gatherer);
     }
 private:
     std::vector<Item> items_;
     std::vector<Gatherer> gatherers_;
 };
 
-TEST_CASE("Movement along the x-axis", FindGatherEvents) {
+TEST_CASE("Movement along the x-axis", "[FindGatherEvents]") {
     using Catch::Matchers::WithinRel;
     collision_detector::Item item{{12.5, 0}, 0.6};
     collision_detector::Gatherer gatherer{{0, 0}, {22.5, 0}, 0.6};
@@ -58,11 +58,11 @@ TEST_CASE("Movement along the x-axis", FindGatherEvents) {
     CHECK_THAT(events[0].time, WithinRel((item.position.x/gatherer.end_pos.x), 1e-9)); 
 }
 
-TEST_CASE("Movement along the x-axis on the edge", FindGatherEvents) {
+TEST_CASE("Movement along the x-axis on the edge", "[FindGatherEvents]") {
     using Catch::Matchers::WithinRel;
     collision_detector::Item item{{12.5, 0}, 0.6};
     collision_detector::Gatherer gatherer{{0, 0}, {12.5, 0}, 0.6};
-    collision_detector::ItemGatherer;
+    collision_detector::ItemGatherer provider;
     provider.AddItem(item);
     provider.AddGatherer(gatherer);
     auto events = collision_detector::FindGatherEvents(provider);
@@ -74,11 +74,11 @@ TEST_CASE("Movement along the x-axis on the edge", FindGatherEvents) {
     CHECK_THAT(events[0].time, WithinRel((item.position.x/gatherer.end_pos.x), 1e-9)); 
 }
 
-TEST_CASE("Movement along the x-axis on side", FindGatherEvents) {
+TEST_CASE("Movement along the x-axis on side", "[FindGatherEvents]") {
     using Catch::Matchers::WithinRel;
     collision_detector::Item item{{12.5, 0.5}, 0.0};
     collision_detector::Gatherer gatherer{{0, 0.1}, {22.5, 0.1}, 0.6};
-    collision_detector::ItemGatherer;
+    collision_detector::ItemGatherer provider;
     provider.AddItem(item);
     provider.AddGatherer(gatherer);
     auto events = collision_detector::FindGatherEvents(provider);
@@ -90,11 +90,11 @@ TEST_CASE("Movement along the x-axis on side", FindGatherEvents) {
     CHECK_THAT(events[0].time, WithinRel((item.position.x/gatherer.end_pos.x), 1e-9)); 
 }
 
-TEST_CASE("Movement along y-axis", FindGatherEvents) {
+TEST_CASE("Movement along y-axis", "[FindGatherEvents]") {
     using Catch::Matchers::WithinRel;
     collision_detector::Item item{{0, 12.5}, 0.6};
     collision_detector::Gatherer gatherer{{0, 0}, {0, 22.5}, 0.6};
-    collision_detector::ItemGatherer;
+    collision_detector::ItemGatherer provider;
     provider.AddItem(item);
     provider.AddGatherer(gatherer);
     auto events = collision_detector::FindGatherEvents(provider);
@@ -106,12 +106,12 @@ TEST_CASE("Movement along y-axis", FindGatherEvents) {
     CHECK_THAT(events[0].time, WithinRel((item.position.y/gatherer.end_pos.y), 1e-9)); 
 }
 
-TEST_CASE("Gatherer collects one of two items moving along the x-axis", FindGatherEvents) {
+TEST_CASE("Gatherer collects one of two items moving along the x-axis", "[FindGatherEvents]") {
     using Catch::Matchers::WithinRel;
     collision_detector::Item item1{{42.5, 0}, 0.6};
     collision_detector::Item item2{{6.5, 0}, 0.6};
     collision_detector::Gatherer gatherer{{0, 0}, {22.5, 0}, 0.6};
-    collision_detector::ItemGatherer;
+    collision_detector::ItemGatherer provider;
     provider.AddItem(item1);
     provider.AddItem(item2);
     provider.AddGatherer(gatherer);
@@ -125,13 +125,13 @@ TEST_CASE("Gatherer collects one of two items moving along the x-axis", FindGath
     CHECK_THAT(events[0].time, WithinRel((item2.position.x/gatherer.end_pos.x), 1e-9)); 
 }
 
-TEST_CASE("Two gatherers collect two separate items moving along the x-axis and y-axis", FindGatherEvents) {
+TEST_CASE("Two gatherers collect two separate items moving along the x-axis and y-axis", "[FindGatherEvents]") {
     using Catch::Matchers::WithinRel;
     collision_detector::Item item1{{0, 12.5}, 0.6};
     collision_detector::Item item2{{6.5, 0}, 0.6};
     collision_detector::Gatherer gatherer1{{0, 0}, {22.5, 0}, 0.6};
     collision_detector::Gatherer gatherer2{{0, 0}, {0, 22.5}, 0.6};
-    collision_detector::ItemGatherer;
+    collision_detector::ItemGatherer provider;
     provider.AddItem(item1);
     provider.AddItem(item2);
     provider.AddGatherer(gatherer1);
@@ -151,13 +151,13 @@ TEST_CASE("Two gatherers collect two separate items moving along the x-axis and 
     CHECK_THAT(events[1].time, WithinRel((item1.position.y/gatherer2.end_pos.y), 1e-9)); 
 }
 
-TEST_CASE("Two gatherers collect three items moving along the x-axis and y-axis", FindGatherEvents) {
+TEST_CASE("Two gatherers collect three items moving along the x-axis and y-axis", "[FindGatherEvents]") {
     using Catch::Matchers::WithinRel;
     collision_detector::Item item1{{12.5, 0}, 0.6};
     collision_detector::Item item2{{6.5, 0}, 0.6};
     collision_detector::Gatherer gatherer1{{0, 0}, {22.5, 0}, 0.6};
     collision_detector::Gatherer gatherer2{{0, 0}, {10, 0}, 0.6};
-    collision_detector::ItemGatherer;
+    collision_detector::ItemGatherer provider;
     provider.AddItem(item1);
     provider.AddItem(item2);
     provider.AddGatherer(gatherer1);
