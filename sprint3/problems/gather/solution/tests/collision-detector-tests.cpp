@@ -8,10 +8,11 @@
 
 #include "../src/collision_detector.h"
 
+namespace collision_detector {
 
-class ItemGatherer : public ItemGatherer {
+class ItemGatherer : public ItemGathererProvider {
 public:
-    virtual ~ItemGathererImpl() = default;
+    virtual ~ItemGatherer() = default;
 
     size_t ItemsCount() {
         return items_.size();
@@ -37,8 +38,8 @@ public:
         gatherers_.push_back(std::move(gatherer));
     }
 private:
-    vector<Item> items_;
-    vector<Gatherer> gatherers_;
+    std::vector<Item> items_;
+    std::vector<Gatherer> gatherers_;
 };
 
 TEST_CASE("Movement along the x-axis", FindGatherEvents) {
@@ -180,3 +181,4 @@ TEST_CASE("Two gatherers collect three items moving along the x-axis and y-axis"
     CHECK_THAT(events[2].sq_distance, WithinRel(0.0, 1e-9));
     CHECK_THAT(events[2].time, WithinRel((item2.position.x/gatherer2.end_pos.x), 1e-9)); 
 }
+}; // collision_detector
