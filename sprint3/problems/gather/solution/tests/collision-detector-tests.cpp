@@ -31,7 +31,7 @@ public:
     }
 
     void AddItem(const Item& item) {
-        itmes_.push_back(std::move(item));
+        items_.push_back(std::move(item));
     }
 
     void AddGatherer(const Gatherer& gatherer) {
