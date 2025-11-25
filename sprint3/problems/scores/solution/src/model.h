@@ -10,7 +10,6 @@
 
 #include "loot_generator.h"
 #include "tagged.h"
-#include "extra_data.h"
 
 namespace model {
 
