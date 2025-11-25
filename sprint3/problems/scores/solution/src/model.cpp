@@ -5,7 +5,6 @@
 namespace model {
 using namespace std::literals;
 
-#include "collision_detector.h"
 #include <cassert>
 
 namespace collision_detector {
