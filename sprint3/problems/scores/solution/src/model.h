@@ -274,6 +274,17 @@ public:
         return bag_capacity_; 
     }
 
+    void SetLootTypeValues(const std::vector<int>& values) {
+        loot_values_ = values;
+    }
+
+    int GetLootValue(size_t type_index) const {
+        if (type_index < loot_values_.size()) {
+            return loot_values_[type_index];
+        }
+        return 0;
+    }
+
 private:
     using OfficeIdToIndex = std::unordered_map<Office::Id, size_t, util::TaggedHasher<Office::Id>>;
 
@@ -283,6 +294,7 @@ private:
     Buildings buildings_;
     OfficeIdToIndex warehouse_id_to_index_;
     Offices offices_;
+    std::vector<int> loot_values_; 
     double speed_;
     std::optional<loot_gen::LootGenerator> generator_;
     int loot_count_ = 0;
@@ -628,9 +640,7 @@ private:
         loot.id = next_loot_id_++;
         loot.type = GenerateRandomLootType();
         loot.position = GenerateRandomPositionOnRoad();
-
-        loot.value = extra_data::ExtraDataRepository::GetInstance().GetLootValue(map_->GetId(), loot.type);
-
+        loot.value = map_->GetLootValue(loot.type);
         loots_.emplace(loot.id, loot);
     }
 
