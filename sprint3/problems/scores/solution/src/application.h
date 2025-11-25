@@ -61,6 +61,7 @@ public:
     json_serializer::SerializeBuildings(*map, map_json);
     json_serializer::SerializeRoads(*map, map_json);
     json_serializer::SerializeOffices(*map, map_json);
+    json_serializer::SerializeLootTypes(*map, map_json);
 
     if (const auto *loot_types_ptr = extra_data::ExtraDataRepository::GetInstance().GetLootTypes(map->GetId())) {
         map_json["lootTypes"] = *loot_types_ptr;

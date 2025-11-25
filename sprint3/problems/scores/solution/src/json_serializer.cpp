@@ -96,10 +96,13 @@ void SerializeOffices(const model::Map& map, boost::json::object& obj) {
 }
 
 void SerializeLootTypes(const model::Map& map, boost::json::object& obj) {
+    std::string map_id_str = *map.GetId();
     const auto* loot_types = extra_data::ExtraDataRepository::GetInstance().GetLootTypes(map.GetId());
-    if (!loot_types) return;
-
-    obj["lootTypes"] = *loot_types;  // Просто возвращаем массив для фронтенда
+    if (loot_types) {
+            obj["lootTypes"] = *loot_types;
+        } else {
+            obj["lootTypes"] = boost::json::array{}; 
+        }
 }
 
 }  // namespace json_serializer

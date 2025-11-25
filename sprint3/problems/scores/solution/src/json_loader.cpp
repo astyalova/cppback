@@ -134,6 +134,8 @@ void LoadLootTypes(model::Map& map, const boost::json::object& map_obj) {
     const auto& loot_array = map_obj.at("lootTypes").as_array();
     if (loot_array.empty()) return;
 
+    extra_data::ExtraDataRepository::GetInstance().SetLootTypes(map.GetId(), loot_array);
+
     std::vector<int> loot_values;
     for (const auto& loot_item : loot_array) {
         const auto& obj = loot_item.as_object();
