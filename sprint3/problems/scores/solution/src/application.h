@@ -68,12 +68,6 @@ public:
         map_json["lootTypes"] = boost::json::array{};
     }
 
-    // boost::json::array lost_objects_array;
-    // for (int i = 0; i < map->GetLootTypeCount(); ++i) {
-    //     lost_objects_array.push_back(boost::json::object{{"type", i}});
-    // }
-    // map_json["lostObjects"] = std::move(lost_objects_array);
-
     return boost::json::serialize(map_json);
 }
 
@@ -199,7 +193,7 @@ public:
         }
     }
 
-    [[nodiscard]] std::unordered_map<int, model::GameSession::Loot> GetLostObjects(const player::Players::Token& token) {
+    [[nodiscard]] std::unordered_map<int, model::LostObject> GetLostObjects(const player::Players::Token& token) {
         auto player = players_.FindByToken(token);
         if (!player) {
             throw AppErrorException("No player with such token", AppErrorException::Category::NoPlayerWithToken);

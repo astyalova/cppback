@@ -10,6 +10,7 @@
 
 #include "loot_generator.h"
 #include "tagged.h"
+#include "extra_data.h"
 
 namespace model {
 
@@ -436,12 +437,6 @@ class GameSession {
 public:
     using Loots = std::vector<loot_gen::LootGenerator>;
 
-    struct Loot {
-        int id;
-        int type;
-        Position pos;
-    };
-
     explicit GameSession(const Map* map) : map_(map), loot_generator_(map->GetLootGenerator()) {}
 
     GameSession(const GameSession&) = delete;
@@ -514,11 +509,11 @@ public:
         }
     }
 
-    const std::unordered_map<int, Loot>& GetLoots() const {
+    const std::unordered_map<int, LostObject>& GetLoots() const {
         return loots_;
     }
 
-    const std::unordered_map<int, Loot>& GetLostObjects() const {
+    const std::unordered_map<int, LostObject>& GetLostObjects() const {
         return loots_;
     }
 
@@ -541,7 +536,7 @@ void HandleCollisions(std::chrono::milliseconds delta) {
 
     for (const auto& [id, loot] : loots_) {
         Item item;
-        item.position = loot.pos;
+        item.position = loot.position;  // было: loot.pos
         item.width = 0.0; 
         items.push_back(item);
     }
@@ -630,13 +625,12 @@ void HandleCollisions(std::chrono::milliseconds delta) {
 private:
 
     void SpawnOneLoot() {
-        Loot loot;
+        LostObject loot;
         loot.id = next_loot_id_++;
         loot.type = GenerateRandomLootType();
-        loot.pos = GenerateRandomPositionOnRoad();
+        loot.position = GenerateRandomPositionOnRoad();
 
-        auto loot_value = extra_data::ExtraDataRepository::GetInstance().GetLootValue(map_->GetId(), loot.type);
-        loot.value = loot_value;
+        loot.value = extra_data::ExtraDataRepository::GetInstance().GetLootValue(map_->GetId(), loot.type);
 
         loots_.emplace(loot.id, loot);
     }
@@ -658,7 +652,7 @@ private:
 
     std::vector<std::unique_ptr<Dog>> dogs_;
     std::unordered_map<std::uint64_t, Dog*> dogs_id_;
-    std::unordered_map<int, Loot> loots_;
+    std::unordered_map<int, LostObject> loots_;
     const Map* map_;
     int next_loot_id_ = 0;
     loot_gen::LootGenerator loot_generator_;
