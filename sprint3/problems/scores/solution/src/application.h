@@ -140,7 +140,8 @@ public:
                     {"speed", boost::json::array{ static_cast<double>(dog->GetSpeed().x),
                                                 static_cast<double>(dog->GetSpeed().y) }},
                     {"dir", player::GetDirAsStr(dog->GetDir())},
-                    {"bag", std::move(bag_array)}
+                    {"bag", std::move(bag_array)},
+                    {"score", dog->GetScore()}
                 };
             }
         }

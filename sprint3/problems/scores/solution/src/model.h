@@ -84,10 +84,16 @@ struct GatheringEvent {
 
 std::vector<GatheringEvent> FindGatherEvents(const ItemGathererProvider& provider);
 
+struct LootType {
+    std::string name;
+    int value;
+};
+
 struct LostObject {
     uint64_t id = 0;
     std::size_t type = 0;
     Position position{};
+    int value = 0;
 };
 
 class Road {
@@ -296,8 +302,6 @@ Direction GetDirFromStr(const std::string& dir) noexcept;
 
 class Dog {
 public:
-
-
     struct Coordinate {
         double x;
         double y;
@@ -404,6 +408,18 @@ public:
         return prev_position_; 
     }
 
+    int GetScore() const { 
+        return score_; 
+    }
+
+    void AddScore(int points) { 
+        score_ += points; 
+    }
+
+    void ResetScore() { 
+        score_ = 0; 
+    }
+
 private:
     std::uint64_t token_;
     std::string nickname_;
@@ -413,6 +429,7 @@ private:
     std::vector<LostObject> bag_;
     int bag_capacity_ = 3;
     Position prev_position_ {0.0, 0.0};
+    int score_ = 0;
 };
 
 class GameSession {
@@ -507,108 +524,106 @@ public:
 
 void HandleCollisions(std::chrono::milliseconds delta) {
     std::vector<Gatherer> gatherers;
-    std::vector<Dog*> gatherer_dogs; 
-
-    gatherers.reserve(dogs_.size());
-    gatherer_dogs.reserve(dogs_.size());
+    std::vector<Item> items;
+    std::vector<Item> offices;
 
     for (const auto& dog_ptr : dogs_) {
         Gatherer g;
         auto dog = dog_ptr.get();
         auto start_pos = dog->GetPrevPosition();
         auto end_pos = Position{dog->GetCoord().x, dog->GetCoord().y};
-
+            
         g.start_pos = start_pos;
         g.end_pos = end_pos;
         g.width = 0.3; 
         gatherers.push_back(g);
-        gatherer_dogs.push_back(dog);
     }
 
-    std::vector<Item> items;
-    std::vector<int> loot_ids; 
-    items.reserve(loots_.size());
-    loot_ids.reserve(loots_.size());
-
-    for (const auto& kv : loots_) {
-        const auto& loot = kv.second;
+    for (const auto& [id, loot] : loots_) {
         Item item;
         item.position = loot.pos;
-        item.width = 0.0;
+        item.width = 0.0; 
         items.push_back(item);
-        loot_ids.push_back(kv.first);
     }
 
-    std::vector<Item> offices;
-    offices.reserve(map_->GetOffices().size());
     for (const auto& office : map_->GetOffices()) {
         Item item;
         item.position = Position{
             static_cast<double>(office.GetPosition().x),
             static_cast<double>(office.GetPosition().y)
         };
-        item.width = 0.25;
-        offices.push_back(std::move(item));
+        item.width = 0.25; 
+        offices.push_back(item);
     }
 
     class CombinedProvider : public ItemGathererProvider {
-    public:
-        CombinedProvider(const std::vector<Item>& items,
-                         const std::vector<Item>& offices,
-                         const std::vector<Gatherer>& gatherers)
-            : items_(items), offices_(offices), gatherers_(gatherers) {}
+        public:
+            CombinedProvider(const std::vector<Item>& items, const std::vector<Item>& offices, 
+                           const std::vector<Gatherer>& gatherers)
+                : items_(items), offices_(offices), gatherers_(gatherers) {}
 
-        size_t ItemsCount() const override {
-            return items_.size() + offices_.size();
-        }
-        Item GetItem(size_t idx) const override {
-            if (idx < items_.size()) return items_[idx];
-            return offices_[idx - items_.size()];
-        }
-        size_t GatherersCount() const override {
-            return gatherers_.size();
-        }
-        Gatherer GetGatherer(size_t idx) const override {
-            return gatherers_[idx];
-        }
+            size_t ItemsCount() const override { 
+                return items_.size() + offices_.size(); 
+            }
+            
+            Item GetItem(size_t idx) const override {
+                if (idx < items_.size()) {
+                    return items_[idx];
+                } else {
+                    return offices_[idx - items_.size()];
+                }
+            }
+            
+            size_t GatherersCount() const override { 
+                return gatherers_.size(); 
+            }
+            
+            Gatherer GetGatherer(size_t idx) const override { 
+                return gatherers_[idx]; 
+            }
 
-    private:
-        const std::vector<Item>& items_;
-        const std::vector<Item>& offices_;
-        const std::vector<Gatherer>& gatherers_;
+        private:
+            const std::vector<Item>& items_;
+            const std::vector<Item>& offices_;
+            const std::vector<Gatherer>& gatherers_;
     };
 
     CombinedProvider provider(items, offices, gatherers);
     auto events = FindGatherEvents(provider);
 
+    std::vector<int> items_to_remove;
+    std::vector<size_t> players_to_clear;
+
     for (const auto& event : events) {
-        if (event.gatherer_id >= gatherer_dogs.size()) {
-            continue; 
-        }
-
-        Dog* dog = gatherer_dogs[event.gatherer_id];
-        if (!dog) continue;
-
+        auto& dog = dogs_[event.gatherer_id];
+        
         if (event.item_id < items.size()) {
-            int loot_id = loot_ids[event.item_id];
-            auto loot_it = loots_.find(loot_id);
-            if (loot_it != loots_.end()) {
-                if (static_cast<int>(dog->GetBag().size()) < dog->GetBagCapacity()) {
-                    LostObject lost;
-                    lost.id = static_cast<uint64_t>(loot_it->second.id);
-                    lost.type = static_cast<std::size_t>(loot_it->second.type);
-                    lost.position = loot_it->second.pos;
-
-                    dog->AddToBag(lost);
-                    loots_.erase(loot_it);
-                }
+            auto loot_id = std::next(loots_.begin(), event.item_id)->first;
+            auto loot_iter = loots_.find(loot_id);
+            
+            if (loot_iter != loots_.end() && 
+                dog->GetBag().size() < dog->GetBagCapacity()) {
+                dog->AddToBag(loot_iter->second);
+                items_to_remove.push_back(loot_iter->first);
             }
         } else {
-            size_t office_idx = event.item_id - items.size();
-            if (office_idx < offices.size()) {
-                dog->ClearBag();
+            int total_score = 0;
+            for (const auto& item : dog->GetBag()) {
+                total_score += item.value;
             }
+            if (total_score > 0) {
+                dog->AddScore(total_score);
+            }
+            players_to_clear.push_back(event.gatherer_id);
         }
+    }
+
+    for (int id : items_to_remove) {
+        loots_.erase(id);
+    }
+
+    for (size_t player_id : players_to_clear) {
+        dogs_[player_id]->ClearBag();
     }
 }
 
@@ -619,6 +634,9 @@ private:
         loot.id = next_loot_id_++;
         loot.type = GenerateRandomLootType();
         loot.pos = GenerateRandomPositionOnRoad();
+
+        auto loot_value = extra_data::ExtraDataRepository::GetInstance().GetLootValue(map_->GetId(), loot.type);
+        loot.value = loot_value;
 
         loots_.emplace(loot.id, loot);
     }

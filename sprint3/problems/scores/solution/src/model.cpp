@@ -7,8 +7,6 @@ using namespace std::literals;
 
 #include <cassert>
 
-namespace collision_detector {
-
 CollectionResult TryCollectPoint(Position a, Position b, Position c) {
     // Проверим, что перемещение ненулевое.
     // Тут приходится использовать строгое равенство, а не приближённое,
@@ -41,7 +39,7 @@ std::vector<GatheringEvent> FindGatherEvents(const ItemGathererProvider& provide
             auto collect = TryCollectPoint(gatherer.start_pos, gatherer.end_pos, item.position);
 
             if(collect.IsCollected(item.width + gatherer.width)) {
-                res.push_back({j, i, collect.sq_distance, collect.proj_ratio});
+                res.push_back(GatheringEvent(j, i, collect.sq_distance, collect.proj_ratio));
             }
         }
     }
@@ -51,9 +49,6 @@ std::vector<GatheringEvent> FindGatherEvents(const ItemGathererProvider& provide
     });
     return res;
 }
-
-
-}  // namespace collision_detector
 
 void Map::AddOffice(Office office) {
     if (warehouse_id_to_index_.contains(office.GetId())) {
