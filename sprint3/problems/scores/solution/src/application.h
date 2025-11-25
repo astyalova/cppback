@@ -147,7 +147,7 @@ public:
             lost_objects_json.push_back(boost::json::object{
                 {"id", id},
                 {"type", obj.type},
-                {"pos", boost::json::array{obj.pos.x, obj.pos.y }}
+                {"pos", boost::json::array{obj.position.x, obj.position.y }}
             });
             }
         }
