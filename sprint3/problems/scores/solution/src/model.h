@@ -48,6 +48,20 @@ struct Gatherer {
     double width;
 };
 
+struct CollectionResult {
+    bool IsCollected(double collect_radius) const {
+        return proj_ratio >= 0 && proj_ratio <= 1 && sq_distance <= collect_radius * collect_radius;
+    }
+
+    // квадрат расстояния до точки
+    double sq_distance;
+
+    // доля пройденного отрезка
+    double proj_ratio;
+};
+
+CollectionResult TryCollectPoint(Position a, Position b, Position c);
+
 class ItemGathererProvider {
 protected:
     ~ItemGathererProvider() = default;
@@ -64,6 +78,8 @@ struct GatheringEvent {
     size_t gatherer_id;
     double sq_distance;
     double time;
+
+    GatheringEvent(size_t g, size_t i, double d, double r) : item_id(g), gatherer_id(i), sq_distance(d), time(r) {}
 };
 
 std::vector<GatheringEvent> FindGatherEvents(const ItemGathererProvider& provider);

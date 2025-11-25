@@ -9,7 +9,7 @@ using namespace std::literals;
 
 namespace collision_detector {
 
-CollectionResult TryCollectPoint(geom::Point2D a, geom::Point2D b, geom::Point2D c) {
+CollectionResult TryCollectPoint(Position a, Position b, Position c) {
     // Проверим, что перемещение ненулевое.
     // Тут приходится использовать строгое равенство, а не приближённое,
     // пскольку при сборе заказов придётся учитывать перемещение даже на небольшое
