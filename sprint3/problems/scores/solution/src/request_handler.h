@@ -153,7 +153,7 @@ private:
             auto lost_objects = app_.GetLostObjects(token.value());
 
             for (const auto& [id, obj] : lost_objects) {
-                boost::json::array pos{ static_cast<double>(obj.pos.x), static_cast<double>(obj.pos.y) };
+                boost::json::array pos{ static_cast<double>(obj.position.x), static_cast<double>(obj.position.y) };
                 lost_objects_json[std::to_string(id)] = {
                     {"type", obj.type},
                     {"pos", pos}
