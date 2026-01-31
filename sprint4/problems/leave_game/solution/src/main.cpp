@@ -59,10 +59,10 @@ struct Args {
             return std::nullopt;
         }
         if (!vm.contains("config-file")) {
-            throw std::runtime_error("Error: configuration file path is not specified");
+            args.path_to_file = "/app/data/config.json";
         }
         if (!vm.contains("www-root"s)) {
-            throw std::runtime_error("Error: static files root directory is not specified");
+            args.path_to_catalogue = "/app/static";
         }
         if (!vm.contains("tick-period")) {
             args.period_ticket = -1;
@@ -102,15 +102,13 @@ int main(int argc, const char* argv[]) {
                             args->spawn,
                             args->period_ticket >= 0);
 
-            const char* db_url = std::getenv("GAME_DB_URL");
-            if (!db_url) {
-                throw std::runtime_error("GAME_DB_URL is not specified");
-            }
-
             const unsigned num_threads = std::max(1u, std::thread::hardware_concurrency());
-            const size_t pool_size = 1;
-            auto records_repo = std::make_shared<db::PostgresRecordsRepository>(db_url, pool_size);
-            app.SetRecordsRepository(std::move(records_repo));
+            const char* db_url = std::getenv("GAME_DB_URL");
+            if (db_url) {
+                const size_t pool_size = 1;
+                auto records_repo = std::make_shared<db::PostgresRecordsRepository>(db_url, pool_size);
+                app.SetRecordsRepository(std::move(records_repo));
+            }
 
             std::optional<state_serialization::StateManager> state_manager;
             if (args->state_file) {
