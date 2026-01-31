@@ -378,18 +378,19 @@ bool View::EditBook(std::istream& cmd_input) const {
             if (matches.size() == 1) {
                 book = matches.front();
             } else {
-                book = SelectBook(matches, "Enter the book # or empty line to cancel:");
+                book = SelectBook(matches, "Enter the book # or empty line to cancel:",
+                                  "Book not found");
             }
         } else {
             auto all_books = GetBooks();
             if (all_books.empty()) {
                 return true;
             }
-            book = SelectBook(all_books, "Enter the book # or empty line to cancel:");
+            book = SelectBook(all_books, "Enter the book # or empty line to cancel:",
+                              "Book not found");
         }
 
         if (!book) {
-            output_ << "Enter new title or empty line to use the current one ( ):" << std::endl;
             return true;
         }
 
@@ -475,12 +476,16 @@ std::optional<std::string> View::SelectAuthor() const {
 }
 
 std::optional<detail::BookInfo> View::SelectBook(const std::vector<detail::BookInfo>& books,
-                                                 const std::string& prompt) const {
+                                                 const std::string& prompt,
+                                                 std::optional<std::string> cancel_message) const {
     PrintVector(output_, books);
     output_ << prompt << std::endl;
 
     std::string str;
     if (!std::getline(input_, str) || str.empty()) {
+        if (cancel_message.has_value()) {
+            output_ << *cancel_message << std::endl;
+        }
         return std::nullopt;
     }
 

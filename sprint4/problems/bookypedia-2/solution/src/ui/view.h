@@ -67,7 +67,8 @@ private:
     std::optional<detail::AddBookParams> GetBookParams(std::istream& cmd_input) const;
     std::optional<std::string> SelectAuthor() const;
     std::optional<detail::BookInfo> SelectBook(const std::vector<detail::BookInfo>& books,
-                                               const std::string& prompt) const;
+                                               const std::string& prompt,
+                                               std::optional<std::string> cancel_message = std::nullopt) const;
     std::vector<detail::AuthorInfo> GetAuthors() const;
     std::vector<detail::BookInfo> GetBooks() const;
     std::vector<detail::BookInfo> GetBooksByTitle(const std::string& title) const;
