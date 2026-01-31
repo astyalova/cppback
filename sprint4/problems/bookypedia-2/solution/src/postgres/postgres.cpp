@@ -228,7 +228,7 @@ WHERE books.id = $1;
         return std::nullopt;
     }
     domain::BookRepository::BookDetails details;
-    auto& row = book_rows[0];
+    const auto& row = book_rows[0];
     details.info.id = domain::BookId::FromString(row.at("id").as<std::string>());
     details.info.author_id = domain::AuthorId::FromString(row.at("author_id").as<std::string>());
     details.info.title = row.at("title").as<std::string>();
