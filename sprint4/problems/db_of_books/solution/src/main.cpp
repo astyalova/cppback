@@ -16,7 +16,7 @@ void EnsureTable(pqxx::connection& connection) {
         "title varchar(100) NOT NULL,"
         "author varchar(100) NOT NULL,"
         "year integer NOT NULL,"
-        "\"ISBN\" char(13) UNIQUE NULL"
+        "isbn char(13) UNIQUE NULL"
         ")");
     work.commit();
 }
@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
                     isbn = json::value_to<std::string>(isbn_value);
                 }
                 work.exec_params(
-                    "INSERT INTO books (title, author, year, \"ISBN\") VALUES ($1, $2, $3, $4)",
+                    "INSERT INTO books (title, author, year, isbn) VALUES ($1, $2, $3, $4)",
                     title,
                     author,
                     year,
@@ -81,8 +81,8 @@ int main(int argc, char* argv[]) {
         if (action == "all_books") {
             pqxx::read_transaction read_tx{connection};
             pqxx::result rows = read_tx.exec(
-                "SELECT id, title, author, year, \"ISBN\" FROM books "
-                "ORDER BY year DESC, title ASC, author ASC, \"ISBN\" ASC NULLS LAST");
+                "SELECT id, title, author, year, isbn FROM books "
+                "ORDER BY year DESC, title ASC, author ASC, isbn ASC NULLS LAST");
 
             json::array out;
             out.reserve(rows.size());
@@ -92,10 +92,10 @@ int main(int argc, char* argv[]) {
                 book["title"] = row["title"].c_str();
                 book["author"] = row["author"].c_str();
                 book["year"] = row["year"].as<int>();
-                if (row["ISBN"].is_null()) {
+                if (row["isbn"].is_null()) {
                     book["ISBN"] = nullptr;
                 } else {
-                    book["ISBN"] = row["ISBN"].c_str();
+                    book["ISBN"] = row["isbn"].c_str();
                 }
                 out.emplace_back(std::move(book));
             }
