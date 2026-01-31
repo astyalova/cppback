@@ -29,7 +29,7 @@ USER root
 RUN apt update && \
     apt install -y \
       libpq5 \
-      libpqxx-7.6 \
+      libpqxx-dev \
     && \
     rm -rf /var/lib/apt/lists/*
 
