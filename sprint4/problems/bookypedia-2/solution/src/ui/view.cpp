@@ -351,7 +351,6 @@ bool View::DeleteBook(std::istream& cmd_input) const {
         }
 
         if (!book) {
-            output_ << "Book not found"sv << std::endl;
             return true;
         }
         if (!use_cases_.DeleteBook(domain::BookId::FromString(book->id))) {
@@ -390,6 +389,7 @@ bool View::EditBook(std::istream& cmd_input) const {
         }
 
         if (!book) {
+            output_ << "Enter new title or empty line to use the current one ( ):" << std::endl;
             return true;
         }
 
