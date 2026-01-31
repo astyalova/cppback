@@ -293,6 +293,7 @@ bool View::ShowBook(std::istream& cmd_input) const {
         }
 
         if (!book) {
+            output_ << "Book not found"sv << std::endl;
             return true;
         }
 

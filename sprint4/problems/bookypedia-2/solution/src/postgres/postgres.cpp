@@ -73,6 +73,20 @@ WHERE id = $1;
 
 bool AuthorRepositoryImpl::DeleteByIdCascade(const domain::AuthorId& id) {
     pqxx::work work{connection_};
+    work.exec_params(
+        R"(
+DELETE FROM book_tags
+WHERE book_id IN (
+    SELECT id FROM books WHERE author_id = $1
+);
+)"_zv,
+        id.ToString());
+    work.exec_params(
+        R"(
+DELETE FROM books
+WHERE author_id = $1;
+)"_zv,
+        id.ToString());
     auto res = work.exec_params(
         R"(
 DELETE FROM authors
@@ -273,6 +287,12 @@ ORDER BY publication_year, title;
 
 bool BookRepositoryImpl::DeleteById(const domain::BookId& id) {
     pqxx::work work{connection_};
+    work.exec_params(
+        R"(
+DELETE FROM book_tags
+WHERE book_id = $1;
+)"_zv,
+        id.ToString());
     auto res = work.exec_params(
         R"(
 DELETE FROM books
