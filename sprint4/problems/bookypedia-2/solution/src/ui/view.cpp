@@ -293,7 +293,6 @@ bool View::ShowBook(std::istream& cmd_input) const {
         }
 
         if (!book) {
-            output_ << "Book not found"sv << std::endl;
             return true;
         }
 
@@ -352,6 +351,7 @@ bool View::DeleteBook(std::istream& cmd_input) const {
         }
 
         if (!book) {
+            output_ << "Book not found"sv << std::endl;
             return true;
         }
         if (!use_cases_.DeleteBook(domain::BookId::FromString(book->id))) {
