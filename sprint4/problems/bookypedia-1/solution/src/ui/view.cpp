@@ -37,7 +37,7 @@ void PrintVector(std::ostream& out, const std::vector<T>& vector) {
 void PrintAuthors(std::ostream& out, const std::vector<detail::AuthorInfo>& authors) {
     int i = 1;
     for (const auto& author : authors) {
-        out << i++ << ". " << author << std::endl;
+        out << i++ << " " << author << std::endl;
     }
 }
 
