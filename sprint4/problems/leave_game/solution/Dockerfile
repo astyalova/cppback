@@ -25,6 +25,14 @@ RUN cd /app/build && \
 # Второй контейнер в том же докерфайле
 FROM ubuntu:22.04 AS run
 
+USER root
+RUN apt update && \
+    apt install -y \
+      libpq5 \
+      libpqxx-7-7 \
+    && \
+    rm -rf /var/lib/apt/lists/*
+
 # Создадим пользователя www
 RUN groupadd -r www && useradd -r -g www www
 USER www

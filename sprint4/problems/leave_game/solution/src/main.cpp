@@ -108,7 +108,8 @@ int main(int argc, const char* argv[]) {
             }
 
             const unsigned num_threads = std::max(1u, std::thread::hardware_concurrency());
-            auto records_repo = std::make_shared<db::PostgresRecordsRepository>(db_url, num_threads);
+            const size_t pool_size = 1;
+            auto records_repo = std::make_shared<db::PostgresRecordsRepository>(db_url, pool_size);
             app.SetRecordsRepository(std::move(records_repo));
 
             std::optional<state_serialization::StateManager> state_manager;
