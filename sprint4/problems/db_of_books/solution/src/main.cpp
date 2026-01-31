@@ -3,6 +3,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <optional>
 #include <string>
 
 namespace json = boost::json;
@@ -58,22 +59,16 @@ int main(int argc, char* argv[]) {
                 json::value isbn_value = payload.at("ISBN");
 
                 pqxx::work work{connection};
-                if (isbn_value.is_null()) {
-                    work.exec_params(
-                        "INSERT INTO books (title, author, year, \"ISBN\") VALUES ($1, $2, $3, $4)",
-                        title,
-                        author,
-                        year,
-                        pqxx::null());
-                } else {
-                    std::string isbn = json::value_to<std::string>(isbn_value);
-                    work.exec_params(
-                        "INSERT INTO books (title, author, year, \"ISBN\") VALUES ($1, $2, $3, $4)",
-                        title,
-                        author,
-                        year,
-                        isbn);
+                std::optional<std::string> isbn;
+                if (!isbn_value.is_null()) {
+                    isbn = json::value_to<std::string>(isbn_value);
                 }
+                work.exec_params(
+                    "INSERT INTO books (title, author, year, \"ISBN\") VALUES ($1, $2, $3, $4)",
+                    title,
+                    author,
+                    year,
+                    isbn);
                 work.commit();
             } catch (const pqxx::sql_error&) {
                 ok = false;
