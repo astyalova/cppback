@@ -46,6 +46,7 @@ std::vector<std::string> NormalizeTags(const std::string& input) {
             result.emplace_back(std::move(tag));
         }
     }
+    std::sort(result.begin(), result.end());
     return result;
 }
 
@@ -93,7 +94,7 @@ void PrintVector(std::ostream& out, const std::vector<T>& vector) {
 void PrintAuthors(std::ostream& out, const std::vector<detail::AuthorInfo>& authors) {
     int i = 1;
     for (const auto& author : authors) {
-        out << i++ << ". " << author << std::endl;
+        out << i++ << " " << author << std::endl;
     }
 }
 
@@ -333,7 +334,7 @@ bool View::DeleteBook(std::istream& cmd_input) const {
         if (!title.empty()) {
             auto matches = GetBooksByTitle(title);
             if (matches.empty()) {
-                output_ << "Failed to delete book"sv << std::endl;
+                output_ << "Book not found"sv << std::endl;
                 return true;
             }
             if (matches.size() == 1) {
