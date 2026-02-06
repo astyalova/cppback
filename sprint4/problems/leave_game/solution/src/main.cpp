@@ -151,6 +151,7 @@ int main(int argc, const char* argv[]) {
                 (*handler)(std::forward<decltype(req)>(req), std::forward<decltype(send)>(send));
             });
 
+            std::cout << "server started" << std::endl;
             json_logger::LogData("server started"sv, boost::json::object{{"port", port}, {"address", address.to_string()}});
 
             RunWorkers(std::max(1u, num_threads), [&ioc] {
