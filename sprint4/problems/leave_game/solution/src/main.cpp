@@ -59,10 +59,10 @@ struct Args {
             return std::nullopt;
         }
         if (!vm.contains("config-file")) {
-            args.path_to_file = "/app/data/config.json";
+            args.path_to_file = "./data/config.json";
         }
         if (!vm.contains("www-root"s)) {
-            args.path_to_catalogue = "/app/static";
+            args.path_to_catalogue = "./static";
         }
         if (!vm.contains("tick-period")) {
             args.period_ticket = -1;
