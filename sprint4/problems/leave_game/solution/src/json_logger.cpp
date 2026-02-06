@@ -20,7 +20,7 @@ void InitLogger() {
 
     //set new format
     logging::add_console_log(
-        std::clog,
+        std::cout,
         keywords::format = &LogFormatter,
         keywords::auto_flush = true
     );

@@ -11,7 +11,9 @@ RUN apt update && \
 # Запуск conan как раньше
 COPY conanfile.txt /app/
 RUN mkdir /app/build && cd /app/build && \
-    conan install .. -s compiler.libcxx=libstdc++11 -s build_type=Release
+    conan profile new default --detect && \
+    conan profile update settings.compiler.libcxx=libstdc++11 default && \
+    conan install .. --build=missing
 
 # Папка data больше не нужна
 COPY ./src /app/src
@@ -24,14 +26,6 @@ RUN cd /app/build && \
 
 # Второй контейнер в том же докерфайле
 FROM ubuntu:22.04 AS run
-
-USER root
-RUN apt update && \
-    apt install -y \
-      libpq5 \
-      libpqxx-dev \
-    && \
-    rm -rf /var/lib/apt/lists/*
 
 # Создадим пользователя www
 RUN groupadd -r www && useradd -r -g www www
