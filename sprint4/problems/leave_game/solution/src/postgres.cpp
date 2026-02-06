@@ -4,8 +4,6 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
-#include <cstdint>
-
 namespace db {
 
 namespace {
@@ -17,11 +15,11 @@ PostgresRecordsRepository::PostgresRecordsRepository(std::string db_url, size_t 
     : pool_{pool_size, [url = std::move(db_url)] {
         auto conn = std::make_shared<pqxx::connection>(url);
         conn->prepare(kInsertRecord,
-            "INSERT INTO retired_players (id, name, score, play_time_ms) "
+            "INSERT INTO records (id, name, score, play_time) "
             "VALUES ($1, $2, $3, $4)");
         conn->prepare(kSelectRecords,
-            "SELECT name, score, play_time_ms FROM retired_players "
-            "ORDER BY score DESC, play_time_ms ASC, name ASC "
+            "SELECT name, score, play_time FROM records "
+            "ORDER BY score DESC, play_time ASC, name ASC "
             "OFFSET $1 LIMIT $2");
         return conn;
     }} {
@@ -32,24 +30,24 @@ void PostgresRecordsRepository::EnsureSchema() {
     auto conn = pool_.GetConnection();
     pqxx::work work{*conn};
     work.exec(
-        "CREATE TABLE IF NOT EXISTS retired_players ("
+        "CREATE TABLE IF NOT EXISTS records ("
         "id UUID PRIMARY KEY,"
         "name TEXT NOT NULL,"
         "score INTEGER NOT NULL,"
-        "play_time_ms BIGINT NOT NULL"
+        "play_time DOUBLE PRECISION NOT NULL"
         ")");
     work.exec(
-        "CREATE INDEX IF NOT EXISTS retired_players_score_time_name_idx "
-        "ON retired_players (score DESC, play_time_ms ASC, name ASC)");
+        "CREATE INDEX IF NOT EXISTS records_score_time_name_idx "
+        "ON records (score DESC, play_time ASC, name ASC)");
     work.commit();
 }
 
-void PostgresRecordsRepository::AddRecord(std::string_view name, int score, std::chrono::milliseconds play_time) {
+void PostgresRecordsRepository::AddRecord(std::string_view name, int score, double play_time) {
     auto conn = pool_.GetConnection();
     pqxx::work work{*conn};
     boost::uuids::random_generator gen;
     auto id = boost::uuids::to_string(gen());
-    work.exec_prepared(kInsertRecord, id, name, score, play_time.count());
+    work.exec_prepared(kInsertRecord, id, name, score, play_time);
     work.commit();
 }
 
@@ -63,7 +61,7 @@ std::vector<RetiredPlayerRecord> PostgresRecordsRepository::GetRecords(size_t st
         RetiredPlayerRecord rec;
         rec.name = row["name"].c_str();
         rec.score = row["score"].as<int>();
-        rec.play_time = std::chrono::milliseconds{row["play_time_ms"].as<std::int64_t>()};
+        rec.play_time = row["play_time"].as<double>();
         records.push_back(std::move(rec));
     }
     return records;

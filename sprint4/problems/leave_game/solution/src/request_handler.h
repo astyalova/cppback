@@ -348,7 +348,7 @@ private:
                 out.push_back(boost::json::object{
                     {"name", record.name},
                     {"score", record.score},
-                    {"playTime", static_cast<double>(record.play_time.count()) / 1000.0}
+                    {"playTime", record.play_time}
                 });
             }
 

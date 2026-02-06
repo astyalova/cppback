@@ -254,7 +254,7 @@ namespace player {
         struct RetiredPlayerInfo {
             std::string name;
             int score = 0;
-            std::chrono::milliseconds play_time{0};
+            double play_time = 0.0;
         };
 
         std::vector<RetiredPlayerInfo> RetireIdlePlayers(std::chrono::milliseconds retirement_time) {
@@ -266,7 +266,7 @@ namespace player {
                     retired.push_back(RetiredPlayerInfo{
                         dog->GetNickname(),
                         dog->GetScore(),
-                        dog->GetPlayTime()
+                        std::chrono::duration_cast<std::chrono::duration<double>>(dog->GetPlayTime()).count()
                     });
                     if (auto* session = player.GetSession()) {
                         session->RemoveDogByToken(player.GetDogId());

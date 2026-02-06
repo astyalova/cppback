@@ -104,11 +104,12 @@ int main(int argc, const char* argv[]) {
 
             const unsigned num_threads = std::max(1u, std::thread::hardware_concurrency());
             const char* db_url = std::getenv("GAME_DB_URL");
-            if (db_url) {
-                const size_t pool_size = 1;
-                auto records_repo = std::make_shared<db::PostgresRecordsRepository>(db_url, pool_size);
-                app.SetRecordsRepository(std::move(records_repo));
+            if (!db_url) {
+                throw std::runtime_error("GAME_DB_URL is not specified");
             }
+            const size_t pool_size = 1;
+            auto records_repo = std::make_shared<db::PostgresRecordsRepository>(db_url, pool_size);
+            app.SetRecordsRepository(std::move(records_repo));
 
             std::optional<state_serialization::StateManager> state_manager;
             if (args->state_file) {
@@ -151,7 +152,6 @@ int main(int argc, const char* argv[]) {
                 (*handler)(std::forward<decltype(req)>(req), std::forward<decltype(send)>(send));
             });
 
-            std::cout << "server started" << std::endl;
             json_logger::LogData("server started"sv, boost::json::object{{"port", port}, {"address", address.to_string()}});
 
             RunWorkers(std::max(1u, num_threads), [&ioc] {

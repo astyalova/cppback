@@ -85,7 +85,7 @@ class PostgresRecordsRepository : public RecordsRepository {
 public:
     PostgresRecordsRepository(std::string db_url, size_t pool_size);
 
-    void AddRecord(std::string_view name, int score, std::chrono::milliseconds play_time) override;
+    void AddRecord(std::string_view name, int score, double play_time) override;
     std::vector<RetiredPlayerRecord> GetRecords(size_t start, size_t max_items) override;
 
 private:
