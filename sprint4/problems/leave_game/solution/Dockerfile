@@ -22,7 +22,7 @@ COPY CMakeLists.txt /app/
 
 RUN cd /app/build && \
     cmake -DCMAKE_BUILD_TYPE=Release .. && \
-    cmake --build .
+    cmake --build . -j4
 
 # Второй контейнер в том же докерфайле
 FROM ubuntu:22.04 AS run
