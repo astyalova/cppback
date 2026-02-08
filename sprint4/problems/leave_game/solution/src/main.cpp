@@ -5,18 +5,14 @@
 #include "json_logger.h"
 #include "model.h"
 #include "player.h"
-#include "postgres.h"
 #include "request_handler.h"
-#include "state_serialization.h"
 #include "ticker.h"
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <boost/program_options.hpp>
 #include <boost/core/detail/string_view.hpp>
-#include <algorithm>
 #include <cstdlib>
-#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <thread>
@@ -31,8 +27,6 @@ struct Args {
     std::string path_to_file;
     std::string path_to_catalogue;
     bool spawn;
-    std::optional<std::filesystem::path> state_file;
-    std::optional<std::chrono::milliseconds> save_state_period;
 }; 
 
 [[nodiscard]] std::optional<Args> ParseCommandLine(int argc, const char* const argv[]) {
@@ -46,8 +40,6 @@ struct Args {
         ("tick-period, t", po::value(&args.period_ticket)->value_name("milliseconds"), "set tick period")
         ("config-file, c", po::value(&args.path_to_file)->value_name("file"), "set config file path")
         ("www-root, w", po::value(&args.path_to_catalogue)->value_name("dir"), "set static files root")
-        ("state-file", po::value<std::string>()->value_name("path"), "set state file path")
-        ("save-state-period", po::value<int>()->value_name("milliseconds"), "set state save period in game time")
         ("randomize-spawn-points", "spawn dogs at random positions ");
 
     po::variables_map vm;
@@ -59,21 +51,15 @@ struct Args {
             return std::nullopt;
         }
         if (!vm.contains("config-file")) {
-            args.path_to_file = "./data/config.json";
+            throw std::runtime_error("Error: configuration file path is not specified");
         }
         if (!vm.contains("www-root"s)) {
-            args.path_to_catalogue = "./static";
+            throw std::runtime_error("Error: static files root directory is not specified");
         }
         if (!vm.contains("tick-period")) {
             args.period_ticket = -1;
         }
         args.spawn = vm.contains("randomize-spawn-points");
-        if (vm.contains("state-file")) {
-            args.state_file = std::filesystem::path(vm["state-file"].as<std::string>());
-        }
-        if (vm.contains("save-state-period")) {
-            args.save_state_period = std::chrono::milliseconds(vm["save-state-period"].as<int>());
-        }
 
     return args;
 }
@@ -98,35 +84,18 @@ int main(int argc, const char* argv[]) {
             std::filesystem::path path_to_file = args->path_to_file;
             std::string www_root = args->path_to_catalogue;
 
-            Application app(json_loader::LoadGame(path_to_file),
-                            args->spawn,
-                            args->period_ticket >= 0);
-
-            const unsigned num_threads = std::max(1u, std::thread::hardware_concurrency());
+            // Get database URL from environment variable
             const char* db_url = std::getenv("GAME_DB_URL");
             if (!db_url) {
-                throw std::runtime_error("GAME_DB_URL is not specified");
-            }
-            const size_t pool_size = 1;
-            auto records_repo = std::make_shared<db::PostgresRecordsRepository>(db_url, pool_size);
-            app.SetRecordsRepository(std::move(records_repo));
-
-            std::optional<state_serialization::StateManager> state_manager;
-            if (args->state_file) {
-                state_manager.emplace(app, *args->state_file, args->save_state_period);
-                try {
-                    state_manager->Load();
-                } catch (const std::exception& ex) {
-                    json_logger::LogData("state restore failed"sv, boost::json::object{{"error", ex.what()}});
-                    return EXIT_FAILURE;
-                }
-                app.SetTickObserver([&state_manager](std::chrono::milliseconds delta) {
-                    if (state_manager) {
-                        state_manager->OnTick(delta);
-                    }
-                });
+                throw std::runtime_error("GAME_DB_URL environment variable is not specified");
             }
 
+            Application app(json_loader::LoadGame(path_to_file),
+                            args->spawn,
+                            args->period_ticket >= 0,
+                            std::string(db_url));
+
+            const unsigned num_threads = std::thread::hardware_concurrency();
             net::io_context ioc(num_threads);
 
             net::signal_set signals(ioc, SIGINT, SIGTERM);
@@ -157,9 +126,6 @@ int main(int argc, const char* argv[]) {
             RunWorkers(std::max(1u, num_threads), [&ioc] {
                 ioc.run();
             });
-            if (state_manager) {
-                state_manager->Save();
-            }
             json_logger::LogData("server exited"sv, boost::json::object{{"code", 0}});
         }
     } catch (const std::exception& ex) {

@@ -3,11 +3,9 @@
 #include "model.h"
 
 #include <algorithm>
-#include <chrono>
 #include <iomanip>
 #include <random>
 #include <sstream>
-#include <stdexcept>
 #include <unordered_map>
 #include <vector>
 #include <optional>
@@ -15,23 +13,15 @@
 
 namespace player {
     using namespace model;
-    using Token = std::string;
 
     class Player {
     public:
         static constexpr double HALF_WIDTH = 0.4;
 
-        Player(GameSession* game, Dog* dog, Token token)
-            : game_(game)
-            , dog_(dog)
-            , token_(std::move(token)) {}
+        Player(GameSession* game, Dog* dog) : game_(game), dog_(dog) {}
 
         std::uint64_t GetDogId() const {
             return dog_->GetToken();
-        }
-
-        const Token& GetToken() const {
-            return token_;
         }
 
         GameSession* GetSession() const {
@@ -72,26 +62,20 @@ namespace player {
             dog_->SetSpeed(speed);
         }
 
-        void Tick(std::chrono::milliseconds time) {
-            dog_->AddPlayTime(time);
-            auto speed = dog_->GetSpeed();
-            if (speed.x == 0.0 && speed.y == 0.0) {
-                dog_->AddIdleTime(time);
-            } else {
-                dog_->ResetIdleTime();
-            }
-            Move(time);
-        }
-
         void Move(std::chrono::milliseconds time) {
+            auto time_s_d = std::chrono::duration<double>(time).count();
+            dog_->AddPlayTime(time_s_d);
+
             auto speed = dog_->GetSpeed();
             if (speed.x == 0.0 && speed.y == 0.0) {
+                dog_->AddSleepTime(time_s_d);
+                dog_->SetPrevPosition(Position{dog_->GetCoord().x, dog_->GetCoord().y});
                 return;
             }
+            dog_->ResetSleepTime();
 
             dog_->SetPrevPosition(Position{static_cast<double>(dog_->GetCoord().x),static_cast<double>(dog_->GetCoord().y)});
 
-            auto time_s_d = std::chrono::duration<double>(time).count();
             auto current_pos = dog_->GetCoord();
             auto next_pos = model::Dog::Coordinate{current_pos.x + (speed.x * time_s_d), current_pos.y + (speed.y * time_s_d)};
 
@@ -151,7 +135,6 @@ namespace player {
     private:
         GameSession* game_;
         Dog* dog_;
-        Token token_;
 
         int64_t FindRoadIndex(model::Dog::Coordinate pos, std::unordered_set<size_t>& viewed_road) {
             const auto& roads = game_->GetMap()->GetRoads();
@@ -178,13 +161,7 @@ namespace player {
 
     class Players {
     public:
-        using Token = player::Token;
-
-        struct SavedPlayer {
-            Token token;
-            std::string map_id;
-            std::uint64_t dog_id;
-        };
+        using Token = std::string;
 
         Players() = default;
         
@@ -193,45 +170,13 @@ namespace player {
 
         std::pair<Player*, Token> Add(Dog* dog, GameSession* session) {
             Token token = GeneratePlayerToken();
-            auto player_ptr = std::make_unique<Player>(session, dog, token);
+            auto player_ptr = std::make_unique<Player>(session, dog);
             Player* player = player_ptr.get();
 
             players_.emplace_back(std::move(player_ptr));
             player_token_[token] = player;
             
             return {player, token};
-        }
-
-        Player* AddWithToken(Dog* dog, GameSession* session, Token token) {
-            if (player_token_.contains(token)) {
-                throw std::runtime_error("Duplicate player token");
-            }
-            auto player_ptr = std::make_unique<Player>(session, dog, token);
-            Player* player = player_ptr.get();
-            players_.emplace_back(std::move(player_ptr));
-            player_token_[std::move(token)] = player;
-            return player;
-        }
-
-        std::vector<SavedPlayer> GetSavedPlayers() const {
-            std::vector<SavedPlayer> result;
-            result.reserve(player_token_.size());
-            for (const auto& [token, player] : player_token_) {
-                if (!player || !player->GetSession() || !player->GetSession()->GetMap()) {
-                    continue;
-                }
-                result.push_back(SavedPlayer{
-                    token,
-                    *player->GetSession()->GetMap()->GetId(),
-                    player->GetDogId()
-                });
-            }
-            return result;
-        }
-
-        void Clear() {
-            players_.clear();
-            player_token_.clear();
         }
 
         Player* FindByDogIdAndMapId(uint64_t dog_id, Map::Id map_id) {
@@ -251,40 +196,37 @@ namespace player {
             return nullptr;
         }
 
-        struct RetiredPlayerInfo {
-            std::string name;
-            int score = 0;
-            double play_time = 0.0;
-        };
-
-        std::vector<RetiredPlayerInfo> RetireIdlePlayers(std::chrono::milliseconds retirement_time) {
-            std::vector<RetiredPlayerInfo> retired;
-            for (auto it = players_.begin(); it != players_.end(); ) {
-                Player& player = **it;
-                Dog* dog = player.GetDog();
-                if (dog && dog->GetIdleTime() >= retirement_time) {
-                    retired.push_back(RetiredPlayerInfo{
-                        dog->GetNickname(),
-                        dog->GetScore(),
-                        std::chrono::duration_cast<std::chrono::duration<double>>(dog->GetPlayTime()).count()
-                    });
-                    if (auto* session = player.GetSession()) {
-                        session->RemoveDogByToken(player.GetDogId());
-                    }
-                    player_token_.erase(player.GetToken());
-                    it = players_.erase(it);
-                    continue;
-                }
-                ++it;
-            }
-            return retired;
-        }
-
         void MovePlayers(std::chrono::milliseconds time) {
             for (const auto& player : players_) {
-                player->Tick(time);
+                player->Move(time);
             }
         }
+
+        std::vector<Player*> GetAllPlayers() const {
+            std::vector<Player*> result;
+            result.reserve(players_.size());
+            for (const auto& p : players_) {
+                result.push_back(p.get());
+            }
+            return result;
+        }
+
+        void RemovePlayer(Player* player) {
+            // Remove from token map
+            for (auto it = player_token_.begin(); it != player_token_.end(); ++it) {
+                if (it->second == player) {
+                    player_token_.erase(it);
+                    break;
+                }
+            }
+            // Remove from players vector
+            auto it = std::find_if(players_.begin(), players_.end(),
+                [player](const auto& p) { return p.get() == player; });
+            if (it != players_.end()) {
+                players_.erase(it);
+            }
+        }
+
     private:
         std::vector<std::unique_ptr<Player>> players_;
         std::unordered_map<Token, Player*> player_token_;

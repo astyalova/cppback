@@ -11,9 +11,7 @@ RUN apt update && \
 # Запуск conan как раньше
 COPY conanfile.txt /app/
 RUN mkdir /app/build && cd /app/build && \
-    conan profile new default --detect && \
-    conan profile update settings.compiler.libcxx=libstdc++11 default && \
-    conan install .. --build=missing
+    conan install .. -s compiler.libcxx=libstdc++11 -s build_type=Release
 
 # Папка data больше не нужна
 COPY ./src /app/src
@@ -22,10 +20,13 @@ COPY CMakeLists.txt /app/
 
 RUN cd /app/build && \
     cmake -DCMAKE_BUILD_TYPE=Release .. && \
-    cmake --build . -j4
+    cmake --build .
 
 # Второй контейнер в том же докерфайле
 FROM ubuntu:22.04 AS run
+
+# Установим PostgreSQL клиентские библиотеки
+RUN apt update && apt install -y libpq5 && rm -rf /var/lib/apt/lists/*
 
 # Создадим пользователя www
 RUN groupadd -r www && useradd -r -g www www
@@ -38,5 +39,4 @@ COPY ./data /app/data
 COPY ./static /app/static
 
 # Запускаем игровой сервер
-ENTRYPOINT ["/app/game_server", "--config-file", "/app/data/config.json", "--www-root", "/app/static", \
-            "--state-file", "state" ]
+ENTRYPOINT ["/app/game_server", "/app/data/config.json", "/app/static"]

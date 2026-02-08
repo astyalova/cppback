@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cassert>
-#include <chrono>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -433,32 +432,28 @@ public:
         score_ = 0; 
     }
 
-    std::chrono::milliseconds GetPlayTime() const noexcept {
+    bool IsActive() const {
+        return speed_.x != 0.0 || speed_.y != 0.0;
+    }
+
+    void AddSleepTime(double time) {
+        sleep_time_ += time;
+    }
+
+    double GetSleepTime() const {
+        return sleep_time_;
+    }
+
+    void ResetSleepTime() {
+        sleep_time_ = 0.0;
+    }
+
+    void AddPlayTime(double time) {
+        play_time_ += time;
+    }
+
+    double GetPlayTime() const {
         return play_time_;
-    }
-
-    std::chrono::milliseconds GetIdleTime() const noexcept {
-        return idle_time_;
-    }
-
-    void AddPlayTime(std::chrono::milliseconds delta) {
-        play_time_ += delta;
-    }
-
-    void AddIdleTime(std::chrono::milliseconds delta) {
-        idle_time_ += delta;
-    }
-
-    void ResetIdleTime() {
-        idle_time_ = std::chrono::milliseconds{0};
-    }
-
-    void SetPlayTime(std::chrono::milliseconds value) {
-        play_time_ = value;
-    }
-
-    void SetIdleTime(std::chrono::milliseconds value) {
-        idle_time_ = value;
     }
 
 private:
@@ -471,8 +466,8 @@ private:
     int bag_capacity_ = 3;
     Position prev_position_ {0.0, 0.0};
     int score_ = 0;
-    std::chrono::milliseconds play_time_{0};
-    std::chrono::milliseconds idle_time_{0};
+    double sleep_time_{0.0};
+    double play_time_{0.0};
 };
 
 class GameSession {
@@ -539,27 +534,6 @@ public:
         return map_;
     }
 
-    Dog* RestoreDog(const std::string& name,
-                    std::uint64_t token,
-                    Dog::Coordinate coord,
-                    Dog::Speed speed,
-                    Direction dir,
-                    int bag_capacity,
-                    const std::vector<LostObject>& bag,
-                    const Position& prev_position,
-                    int score,
-                    std::chrono::milliseconds play_time,
-                    std::chrono::milliseconds idle_time);
-
-    Dog* FindDogByToken(std::uint64_t token) const noexcept;
-    void RemoveDogByToken(std::uint64_t token);
-
-    void RestoreLostObjects(std::unordered_map<int, LostObject> loots, int next_loot_id);
-
-    void ClearState();
-
-    int GetNextLootId() const noexcept { return next_loot_id_; }
-
     void AddRandomLoot(std::chrono::milliseconds dt) {
         if (!map_) return;
 
@@ -578,6 +552,15 @@ public:
 
     const std::unordered_map<int, LostObject>& GetLostObjects() const {
         return loots_;
+    }
+
+    void RemoveDog(uint64_t token) {
+        dogs_id_.erase(token);
+        auto it = std::find_if(dogs_.begin(), dogs_.end(),
+            [token](const auto& dog) { return dog->GetToken() == token; });
+        if (it != dogs_.end()) {
+            dogs_.erase(it);
+        }
     }
 
 void HandleCollisions(std::chrono::milliseconds delta) {
@@ -723,7 +706,9 @@ class Game {
 public:
     using Maps = std::vector<Map>;
 
-    Game(double speed = {1.0}) : speed_{speed}
+    Game(double speed = {1.0}, double dog_retirement_time = 60.0) 
+        : speed_{speed}
+        , dog_retirement_time_{dog_retirement_time}
     {}
 
     void AddMap(Map map);
@@ -758,11 +743,7 @@ public:
         return speed_;
     }
 
-    void SetDogRetirementTime(std::chrono::milliseconds value) {
-        dog_retirement_time_ = value;
-    }
-
-    std::chrono::milliseconds GetDogRetirementTime() const noexcept {
+    double GetDogRetirementTime() const noexcept {
         return dog_retirement_time_;
     }
 
@@ -784,7 +765,7 @@ private:
     MapIdToIndex map_id_to_index_;
     Sessions sessions_;
     double speed_;
-    std::chrono::milliseconds dog_retirement_time_{std::chrono::minutes(1)};
+    double dog_retirement_time_;
 };
 
 

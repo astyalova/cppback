@@ -1,70 +1,53 @@
 #include "postgres.h"
 
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
+#include <pqxx/pqxx>
+#include <pqxx/zview.hxx>
 
-namespace db {
+namespace postgres {
 
-namespace {
-constexpr const char* kInsertRecord = "insert_retired_player";
-constexpr const char* kSelectRecords = "select_retired_players";
-}  // namespace
+using namespace std::literals;
+using pqxx::operator"" _zv;
 
-PostgresRecordsRepository::PostgresRecordsRepository(std::string db_url, size_t pool_size)
-    : pool_{pool_size, [url = std::move(db_url)] {
-        auto conn = std::make_shared<pqxx::connection>(url);
-        conn->prepare(kInsertRecord,
-            "INSERT INTO records (id, name, score, play_time) "
-            "VALUES ($1, $2, $3, $4)");
-        conn->prepare(kSelectRecords,
-            "SELECT name, score, play_time FROM records "
-            "ORDER BY score DESC, play_time ASC, name ASC "
-            "OFFSET $1 LIMIT $2");
-        return conn;
-    }} {
-    EnsureSchema();
-}
-
-void PostgresRecordsRepository::EnsureSchema() {
-    auto conn = pool_.GetConnection();
-    pqxx::work work{*conn};
-    work.exec(
-        "CREATE TABLE IF NOT EXISTS records ("
-        "id UUID PRIMARY KEY,"
-        "name TEXT NOT NULL,"
-        "score INTEGER NOT NULL,"
-        "play_time DOUBLE PRECISION NOT NULL"
-        ")");
-    work.exec(
-        "CREATE INDEX IF NOT EXISTS records_score_time_name_idx "
-        "ON records (score DESC, play_time ASC, name ASC)");
+Database::Database(const std::string& db_url)
+    : connection_{db_url} {
+    pqxx::work work{connection_};
+    work.exec(R"(
+CREATE TABLE IF NOT EXISTS retired_players (
+    id UUID CONSTRAINT retired_players_pkey PRIMARY KEY,
+    name varchar(100) NOT NULL,
+    score INTEGER NOT NULL,
+    play_time DOUBLE PRECISION NOT NULL
+);
+)"_zv);
+    work.exec(R"(
+CREATE INDEX IF NOT EXISTS idx_retired_players_score 
+ON retired_players (score DESC, play_time, name);
+)"_zv);
     work.commit();
 }
 
-void PostgresRecordsRepository::AddRecord(std::string_view name, int score, double play_time) {
-    auto conn = pool_.GetConnection();
-    pqxx::work work{*conn};
-    boost::uuids::random_generator gen;
-    auto id = boost::uuids::to_string(gen());
-    work.exec_prepared(kInsertRecord, id, name, score, play_time);
+void Database::SaveRecord(const std::string& name, int score, double play_time) {
+    pqxx::work work{connection_};
+    work.exec_params(
+        R"(
+INSERT INTO retired_players (id, name, score, play_time) VALUES ($1, $2, $3, $4);
+)"_zv,
+        PlayerId::New().ToString(), name, score, play_time);
     work.commit();
 }
 
-std::vector<RetiredPlayerRecord> PostgresRecordsRepository::GetRecords(size_t start, size_t max_items) {
-    auto conn = pool_.GetConnection();
-    pqxx::read_transaction read_tx{*conn};
-    pqxx::result rows = read_tx.exec_prepared(kSelectRecords, start, max_items);
-    std::vector<RetiredPlayerRecord> records;
-    records.reserve(rows.size());
-    for (const auto& row : rows) {
-        RetiredPlayerRecord rec;
-        rec.name = row["name"].c_str();
-        rec.score = row["score"].as<int>();
-        rec.play_time = row["play_time"].as<double>();
-        records.push_back(std::move(rec));
+std::vector<PlayerRecord> Database::GetRecords(size_t start, size_t limit) {
+    pqxx::read_transaction r(connection_);
+    auto query_text = "SELECT name, score, play_time FROM retired_players "
+                      "ORDER BY score DESC, play_time, name "
+                      "OFFSET " + std::to_string(start) + " "
+                      "LIMIT " + std::to_string(limit) + ";";
+
+    std::vector<PlayerRecord> res;
+    for (auto [name, score, play_time] : r.query<std::string, int, double>(query_text)) {
+        res.emplace_back(PlayerRecord{name, score, play_time});
     }
-    return records;
+    return res;
 }
 
-}  // namespace db
+}  // namespace postgres

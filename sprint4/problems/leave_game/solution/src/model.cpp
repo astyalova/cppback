@@ -1,6 +1,5 @@
 #include "model.h"
 
-#include <algorithm>
 #include <stdexcept>
 
 namespace model {
@@ -49,72 +48,6 @@ std::vector<GatheringEvent> FindGatherEvents(const ItemGathererProvider& provide
         return lhs.time < rhs.time;
     });
     return res;
-}
-
-Dog* GameSession::RestoreDog(const std::string& name,
-                             std::uint64_t token,
-                             Dog::Coordinate coord,
-                             Dog::Speed speed,
-                             Direction dir,
-                             int bag_capacity,
-                             const std::vector<LostObject>& bag,
-                             const Position& prev_position,
-                             int score,
-                             std::chrono::milliseconds play_time,
-                             std::chrono::milliseconds idle_time) {
-    if (bag_capacity < 0) {
-        throw std::runtime_error("Invalid bag capacity");
-    }
-    if (bag.size() > static_cast<size_t>(bag_capacity)) {
-        throw std::runtime_error("Bag content exceeds capacity");
-    }
-    auto dog = dogs_.emplace_back(std::make_unique<Dog>(token, name, coord, speed)).get();
-    dogs_id_[dog->GetToken()] = dog;
-    dog->SetDir(dir);
-    dog->SetBagCapacity(bag_capacity);
-    dog->ClearBag();
-    for (const auto& item : bag) {
-        dog->AddToBag(item);
-    }
-    dog->SetPrevPosition(prev_position);
-    dog->ResetScore();
-    dog->AddScore(score);
-    dog->SetPlayTime(play_time);
-    dog->SetIdleTime(idle_time);
-    return dog;
-}
-
-Dog* GameSession::FindDogByToken(std::uint64_t token) const noexcept {
-    if (auto it = dogs_id_.find(token); it != dogs_id_.end()) {
-        return it->second;
-    }
-    return nullptr;
-}
-
-void GameSession::RemoveDogByToken(std::uint64_t token) {
-    auto it = dogs_id_.find(token);
-    if (it == dogs_id_.end()) {
-        return;
-    }
-    Dog* dog_ptr = it->second;
-    dogs_id_.erase(it);
-    auto dog_it = std::find_if(dogs_.begin(), dogs_.end(),
-        [dog_ptr](const std::unique_ptr<Dog>& dog) { return dog.get() == dog_ptr; });
-    if (dog_it != dogs_.end()) {
-        dogs_.erase(dog_it);
-    }
-}
-
-void GameSession::RestoreLostObjects(std::unordered_map<int, LostObject> loots, int next_loot_id) {
-    loots_ = std::move(loots);
-    next_loot_id_ = next_loot_id;
-}
-
-void GameSession::ClearState() {
-    dogs_.clear();
-    dogs_id_.clear();
-    loots_.clear();
-    next_loot_id_ = 0;
 }
 
 void Map::AddOffice(Office office) {

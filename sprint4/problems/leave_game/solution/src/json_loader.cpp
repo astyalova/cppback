@@ -3,7 +3,6 @@
 
 #include <boost/system/system_error.hpp>
 #include <boost/json.hpp>
-#include <chrono>
 #include <fstream>
 #include <stdexcept>
 #include <sstream>
@@ -20,7 +19,6 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
     }
 
     std::stringstream buffer;
-    model::Game game;
 
     buffer << file.rdbuf();
     std::string json_string = buffer.str();
@@ -29,18 +27,18 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
         boost::json::value jv = boost::json::parse(json_string);
         auto root_obj = jv.as_object();
         double default_speed = root_obj.at("defaultDogSpeed").as_double();
-        double retirement_seconds = 60.0;
-        if (root_obj.contains("dogRetirementTime")) {
-            retirement_seconds = root_obj.at("dogRetirementTime").as_double();
-        }
-        auto retirement_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::duration<double>(retirement_seconds));
-        game.SetDogRetirementTime(retirement_ms);
         int default_bag_capacity = 3; 
 
         if (root_obj.contains("defaultBagCapacity")) {
             default_bag_capacity = root_obj.at("defaultBagCapacity").as_int64();
         }
+
+        double dog_retirement_time = 60.0;
+        if (root_obj.contains("dogRetirementTime")) {
+            dog_retirement_time = root_obj.at("dogRetirementTime").as_double();
+        }
+
+        model::Game game(default_speed, dog_retirement_time);
 
         auto map_array = root_obj.at("maps").as_array();
 
@@ -65,10 +63,10 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
             game.AddMap(std::move(mp));
         }
 
+        return game;
     } catch (const std::exception& e) {
         throw std::runtime_error("JSON parsing error: " + std::string(e.what()));
     }
-    return game;
 }
 
 

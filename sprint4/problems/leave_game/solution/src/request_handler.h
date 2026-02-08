@@ -12,7 +12,6 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
-#include <string_view>
 #include <unordered_set>
 #include <regex>
 
@@ -218,6 +217,67 @@ private:
         }
     }
 
+    void HandleApiRecords(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
+        // Parse query parameters from URL
+        std::string target_str = std::string(req.target());
+        size_t start = 0;
+        size_t max_items = 100;
+
+        auto query_pos = target_str.find('?');
+        if (query_pos != std::string::npos) {
+            std::string query = target_str.substr(query_pos + 1);
+            std::istringstream iss(query);
+            std::string param;
+            while (std::getline(iss, param, '&')) {
+                auto eq = param.find('=');
+                if (eq != std::string::npos) {
+                    std::string key = param.substr(0, eq);
+                    std::string val = param.substr(eq + 1);
+                    try {
+                        if (key == "start") {
+                            start = std::stoull(val);
+                        } else if (key == "maxItems") {
+                            max_items = std::stoull(val);
+                        }
+                    } catch (...) {
+                        send(MakeErrorResponse(http::status::bad_request, "invalidArgument", "Invalid query parameter value"));
+                        return;
+                    }
+                }
+            }
+        }
+
+        if (max_items > 100) {
+            send(MakeErrorResponse(http::status::bad_request, "invalidArgument", "maxItems must not exceed 100"));
+            return;
+        }
+
+        try {
+            auto records = app_.GetRecords(start, max_items);
+
+            boost::json::array result;
+            for (const auto& record : records) {
+                result.push_back(boost::json::object{
+                    {"name", record.name},
+                    {"score", record.score},
+                    {"playTime", record.play_time}
+                });
+            }
+
+            http::response<http::string_body> res(http::status::ok, req.version());
+            res.set(http::field::server, "MyGameServer");
+            res.set(http::field::content_type, "application/json");
+            res.set(http::field::cache_control, "no-cache");
+            if (req.method() != http::verb::head) {
+                res.body() = boost::json::serialize(result);
+            }
+            res.prepare_payload();
+            send(std::move(res));
+        } catch (const std::exception& e) {
+            send(MakeErrorResponse(http::status::bad_request, "invalidArgument", e.what()));
+        }
+    }
+
     void HandleApiTick(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
         boost::system::error_code ec;
         auto body = boost::json::parse(req.body(), ec);
@@ -277,94 +337,6 @@ private:
         }
     }
 
-    struct RecordsQuery {
-        size_t start = 0;
-        size_t max_items = 100;
-        bool ok = true;
-        std::string error;
-    };
-
-    static RecordsQuery ParseRecordsQuery(std::string_view target) {
-        RecordsQuery query;
-        auto qpos = target.find('?');
-        if (qpos == std::string_view::npos) {
-            return query;
-        }
-        std::string_view params = target.substr(qpos + 1);
-        while (!params.empty()) {
-            auto amp = params.find('&');
-            auto pair = params.substr(0, amp);
-            params = (amp == std::string_view::npos) ? std::string_view{} : params.substr(amp + 1);
-
-            auto eq = pair.find('=');
-            if (eq == std::string_view::npos) {
-                query.ok = false;
-                query.error = "Invalid query parameter";
-                return query;
-            }
-            auto key = pair.substr(0, eq);
-            auto value = pair.substr(eq + 1);
-            if (value.empty()) {
-                query.ok = false;
-                query.error = "Invalid query parameter";
-                return query;
-            }
-
-            try {
-                if (key == "start") {
-                    long long v = std::stoll(std::string(value));
-                    if (v < 0) {
-                        throw std::invalid_argument("negative");
-                    }
-                    query.start = static_cast<size_t>(v);
-                } else if (key == "maxItems") {
-                    long long v = std::stoll(std::string(value));
-                    if (v < 0 || v > 100) {
-                        throw std::invalid_argument("out_of_range");
-                    }
-                    query.max_items = static_cast<size_t>(v);
-                }
-            } catch (...) {
-                query.ok = false;
-                query.error = "Invalid query parameter";
-                return query;
-            }
-        }
-        return query;
-    }
-
-    void HandleApiRecords(http::request<http::string_body>&& req, std::function<void(http::response<http::string_body>)> send) {
-        auto query = ParseRecordsQuery(req.target());
-        if (!query.ok) {
-            send(MakeErrorResponse(http::status::bad_request, "invalidArgument", query.error));
-            return;
-        }
-
-        try {
-            auto records = app_.GetRecords(query.start, query.max_items);
-            boost::json::array out;
-            out.reserve(records.size());
-            for (const auto& record : records) {
-                out.push_back(boost::json::object{
-                    {"name", record.name},
-                    {"score", record.score},
-                    {"playTime", record.play_time}
-                });
-            }
-
-            http::response<http::string_body> res(http::status::ok, req.version());
-            res.set(http::field::server, "MyGameServer");
-            res.set(http::field::content_type, "application/json");
-            res.set(http::field::cache_control, "no-cache");
-            if (req.method() != http::verb::head) {
-                res.body() = boost::json::serialize(out);
-            }
-            res.prepare_payload();
-            send(std::move(res));
-        } catch (const std::exception&) {
-            send(MakeErrorResponse(http::status::internal_server_error, "serverError", "Failed to load records"));
-        }
-    }
 
     static std::string Trim(std::string_view sv) {
         size_t b = 0, e = sv.size();
@@ -498,6 +470,7 @@ private:
             }
         }
 
+        // Handle records endpoint - target may have query params, so check prefix
         if (target.rfind("/api/v1/game/records", 0) == 0) {
             if (method != http::verb::get && method != http::verb::head) {
                 send(MakeMethodNotAllowed("Only GET/HEAD methods are allowed for this endpoint", "GET, HEAD"));

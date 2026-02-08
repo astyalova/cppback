@@ -6,13 +6,13 @@
 #include "model.h"
 #include "player.h"
 #include "extra_data.h"
-#include "records_repository.h"
+#include "postgres.h"
 
 #include <boost/json.hpp>
 #include <stdexcept>
 #include <string>
 #include <chrono>
-#include <functional>
+#include <memory>
 
 class AppErrorException : public std::invalid_argument {
 public:
@@ -36,24 +36,21 @@ private:
 
 class Application {
 public:
-    using TickObserver = std::function<void(std::chrono::milliseconds)>;
-
-    Application(model::Game&& game, bool spawn = false, bool auto_tick_enabled = false)
+    Application(model::Game&& game, bool spawn = false, bool auto_tick_enabled = false,
+                const std::string& db_url = "")
         : game_(std::move(game))
         , spawn_(spawn)
-        , auto_tick_enabled_(auto_tick_enabled) {}
+        , auto_tick_enabled_(auto_tick_enabled)
+        , retirement_time_(game_.GetDogRetirementTime()) {
+        if (!db_url.empty()) {
+            db_ = std::make_unique<postgres::Database>(db_url);
+        }
+    }
 
     Application(const Application&) = delete;
     Application& operator=(const Application&) = delete;
 
-    void SetTickObserver(TickObserver observer) { tick_observer_ = std::move(observer); }
-
     [[nodiscard]] bool GetAutoTick() const noexcept { return auto_tick_enabled_; }
-    [[nodiscard]] const model::Game& GetGame() const noexcept { return game_; }
-    [[nodiscard]] model::Game& GetGame() noexcept { return game_; }
-    [[nodiscard]] const player::Players& GetPlayers() const noexcept { return players_; }
-    [[nodiscard]] player::Players& GetPlayers() noexcept { return players_; }
-    void SetRecordsRepository(db::RecordsRepositoryPtr repo) { records_repo_ = std::move(repo); }
 
     [[nodiscard]] std::string GetMapsShortInfo() const noexcept {
         return json_serializer::SerializeMaps(game_.GetMaps());
@@ -203,15 +200,15 @@ public:
             session->AddRandomLoot(delta);
             session->HandleCollisions(delta);
         }
-        auto retired = players_.RetireIdlePlayers(game_.GetDogRetirementTime());
-        if (records_repo_) {
-            for (const auto& record : retired) {
-                records_repo_->AddRecord(record.name, record.score, record.play_time);
-            }
+
+        SaveRetirementPlayers();
+    }
+
+    [[nodiscard]] std::vector<postgres::PlayerRecord> GetRecords(size_t start, size_t limit) {
+        if (db_) {
+            return db_->GetRecords(start, limit);
         }
-        if (tick_observer_) {
-            tick_observer_(delta);
-        }
+        return {};
     }
 
     [[nodiscard]] std::unordered_map<int, model::LostObject> GetLostObjects(const player::Players::Token& token) {
@@ -238,18 +235,36 @@ public:
         return MapLostObjectsInfo{map->GetLootTypeCount()};
     }
 
-    [[nodiscard]] std::vector<db::RetiredPlayerRecord> GetRecords(size_t start, size_t max_items) {
-        if (!records_repo_) {
-            return {};
+private:
+    void SaveRetirementPlayers() {
+        if (!db_) return;
+
+        // Collect players that need to retire
+        auto all_players = players_.GetAllPlayers();
+        std::vector<player::Player*> to_retire;
+        for (auto* player : all_players) {
+            if (player->GetDog()->GetSleepTime() >= retirement_time_) {
+                to_retire.push_back(player);
+            }
         }
-        return records_repo_->GetRecords(start, max_items);
+
+        // Save records and remove retired players
+        for (auto* player : to_retire) {
+            auto dog = player->GetDog();
+            db_->SaveRecord(dog->GetNickname(), dog->GetScore(), dog->GetPlayTime());
+
+            // Remove dog from game session
+            player->GetSession()->RemoveDog(dog->GetToken());
+
+            // Remove player (also removes from token map)
+            players_.RemovePlayer(player);
+        }
     }
 
-private:
     model::Game game_;
     player::Players players_;
     bool spawn_;
     bool auto_tick_enabled_;
-    TickObserver tick_observer_;
-    db::RecordsRepositoryPtr records_repo_;
+    double retirement_time_;
+    std::unique_ptr<postgres::Database> db_;
 };
