@@ -26,6 +26,7 @@ add_library(model STATIC
     src/tagged_uuid.h
     src/tagged_uuid.cpp
 	src/player.h
+	src/player.cpp
 	src/ticker.h
 	src/application.h
     src/postgres.h

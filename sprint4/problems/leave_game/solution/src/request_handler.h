@@ -22,6 +22,15 @@ namespace json = boost::json;
 namespace fs = std::filesystem;
 namespace net = boost::asio;
 
+struct Endpoints {
+    static constexpr std::string_view JOIN = "/api/v1/game/join";
+    static constexpr std::string_view PLAYER_ACTION = "/api/v1/game/player/action";
+    static constexpr std::string_view PLAYERS = "/api/v1/game/players";
+    static constexpr std::string_view GAME_STATE = "/api/v1/game/state";
+    static constexpr std::string_view TICK = "/api/v1/game/tick";
+    static constexpr std::string_view RECORDS = "/api/v1/game/records";
+};
+
 struct ContentType {
     constexpr static std::string_view TEXT_HTML = "text/html";
     constexpr static std::string_view TEXT_CSS = "text/css";
@@ -239,7 +248,10 @@ private:
                         } else if (key == "maxItems") {
                             max_items = std::stoull(val);
                         }
-                    } catch (...) {
+                    } catch (const std::invalid_argument&) {
+                        send(MakeErrorResponse(http::status::bad_request, "invalidArgument", "Invalid query parameter value"));
+                        return;
+                    } catch (const std::out_of_range&) {
                         send(MakeErrorResponse(http::status::bad_request, "invalidArgument", "Invalid query parameter value"));
                         return;
                     }
@@ -426,28 +438,28 @@ private:
         const std::string target = std::string(req.target());
         const auto method = req.method();
 
-        if (target == "/api/v1/game/join" && method == http::verb::post) {
+        if (target == Endpoints::JOIN && method == http::verb::post) {
             net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
                 self->HandleApiJoin(std::move(req), std::move(send));
             });
             return;
         }
 
-        if (target == "/api/v1/game/player/action" && method == http::verb::post) {
+        if (target == Endpoints::PLAYER_ACTION && method == http::verb::post) {
             net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
                 self->HandleApiAction(std::move(req), std::move(send));
             });
             return;
         }
 
-        if (target == "/api/v1/game/players" && (method == http::verb::get || method == http::verb::head)) {
+        if (target == Endpoints::PLAYERS && (method == http::verb::get || method == http::verb::head)) {
             net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
                 self->HandleApiPlayers(std::move(req), std::move(send));
             });
             return;
         }
 
-        if(target == "/api/v1/game/state") {
+        if(target == Endpoints::GAME_STATE) {
             if (method != http::verb::get && method != http::verb::head) {
                 send(MakeMethodNotAllowed("Only GET/HEAD methods are allowed for this endpoint", "GET, HEAD"));
                 return;
@@ -458,7 +470,7 @@ private:
             return;
         }
 
-        if (target == "/api/v1/game/tick") {
+        if (target == Endpoints::TICK) {
             if (method == http::verb::post) {
                 net::dispatch(api_strand_, [self = shared_from_this(), req = std::move(req), send = std::move(send)]() mutable {
                     self->HandleApiTick(std::move(req), std::move(send));
@@ -471,7 +483,7 @@ private:
         }
 
         // Handle records endpoint - target may have query params, so check prefix
-        if (target.rfind("/api/v1/game/records", 0) == 0) {
+        if (target.rfind(Endpoints::RECORDS, 0) == 0) {
             if (method != http::verb::get && method != http::verb::head) {
                 send(MakeMethodNotAllowed("Only GET/HEAD methods are allowed for this endpoint", "GET, HEAD"));
                 return;

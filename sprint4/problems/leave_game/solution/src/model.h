@@ -144,13 +144,13 @@ public:
                 std::max(start_.x, end_.x)
             );
             return Position{dist(gen), static_cast<double>(start_.y)};
-        } else { // vertical
-            std::uniform_real_distribution<double> dist(
-                std::min(start_.y, end_.y),
-                std::max(start_.y, end_.y)
-            );
-            return Position{static_cast<double>(start_.x), dist(gen)};
         }
+        // vertical
+        std::uniform_real_distribution<double> dist(
+            std::min(start_.y, end_.y),
+            std::max(start_.y, end_.y)
+        );
+        return Position{static_cast<double>(start_.x), dist(gen)};
     }
 
 private:
@@ -508,17 +508,8 @@ public:
         auto r_start = road.GetStart();
         auto r_end = road.GetEnd();
         
-        Dog::Coordinate pos{0.0, 0.0}; 
-        if (std::abs(r_start.x - r_end.x) > std::abs(r_start.y - r_end.y)) {
-            std::uniform_real_distribution<double> unif_d(std::min(r_start.x, r_end.x), std::max(r_start.x, r_end.x));
-            pos.x = unif_d(rand_engine);
-            pos.y = (((pos.x - static_cast<double>(r_start.x)) * static_cast<double>(r_end.y - r_start.y)) / static_cast<double>(r_end.x - r_start.x)) + static_cast<double>(r_start.y);
-        } else {
-            std::uniform_real_distribution<double> unif_d(std::min(r_start.y, r_end.y), std::max(r_start.y, r_end.y));
-            pos.y = unif_d(rand_engine);
-            pos.x = (((pos.y - static_cast<double>(r_start.y)) * static_cast<double>(r_end.x - r_start.x)) / static_cast<double>(r_end.y - r_start.y)) + static_cast<double>(r_start.x);
-        }
-        return pos;
+        bool use_x_as_primary = std::abs(r_start.x - r_end.x) > std::abs(r_start.y - r_end.y);
+        return InterpolateOnRoad(r_start, r_end, rand_engine, use_x_as_primary);
     }
 
     std::vector<Dog*> GetDogs() const {
@@ -669,6 +660,23 @@ void HandleCollisions(std::chrono::milliseconds delta) {
 }
 
 private:
+
+    static Dog::Coordinate InterpolateOnRoad(Point start, Point end, std::mt19937_64& engine, bool use_x_as_primary) noexcept {
+        Coord s_prim = use_x_as_primary ? start.x : start.y;
+        Coord e_prim = use_x_as_primary ? end.x : end.y;
+        Coord s_sec = use_x_as_primary ? start.y : start.x;
+        Coord e_sec = use_x_as_primary ? end.y : end.x;
+
+        std::uniform_real_distribution<double> dist(std::min(s_prim, e_prim), std::max(s_prim, e_prim));
+        double primary = dist(engine);
+        double secondary = (((primary - static_cast<double>(s_prim)) * static_cast<double>(e_sec - s_sec))
+                            / static_cast<double>(e_prim - s_prim)) + static_cast<double>(s_sec);
+
+        if (use_x_as_primary) {
+            return Dog::Coordinate{primary, secondary};
+        }
+        return Dog::Coordinate{secondary, primary};
+    }
 
     void SpawnOneLoot() {
         LostObject loot;
